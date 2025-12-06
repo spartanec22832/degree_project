@@ -1,0 +1,7 @@
+CREATE TABLE ratings (
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    place_id INT NOT NULL REFERENCES data(id) ON DELETE CASCADE,
+    rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, place_id)
+);

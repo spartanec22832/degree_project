@@ -1,0 +1,7 @@
+CREATE TABLE photos (
+    id BIGSERIAL PRIMARY KEY,
+    place_id INT NOT NULL REFERENCES data(id) ON DELETE CASCADE,
+    url TEXT NOT NULL,
+    is_main BOOLEAN DEFAULT FALSE,
+    order_index INT DEFAULT 0
+);

@@ -7,7 +7,6 @@ CREATE TABLE data (
     address VARCHAR(255),
     work_time VARCHAR(100),
     price NUMERIC(10,2),
-    rating NUMERIC(3,1),
     contact_link TEXT,
     contact_phone VARCHAR(100),
     contact_email VARCHAR(100),
