@@ -27,7 +27,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 
 	// Database
-	implementation("org.flywaydb:flyway-core") // <-- Оставляем только core
+	implementation("org.flywaydb:flyway-core")
 	runtimeOnly("org.postgresql:postgresql")
 
 	// Kotlin
