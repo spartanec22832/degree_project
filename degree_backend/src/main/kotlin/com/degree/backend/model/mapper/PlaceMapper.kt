@@ -2,7 +2,7 @@ package com.degree.backend.model.mapper
 
 import com.degree.backend.model.dto.PhotoDto
 import com.degree.backend.model.dto.PlaceDto
-import com.degree.backend.model.dto.PlacePreviewDto
+import com.degree.backend.model.dto.PlaceMapDto
 import com.degree.backend.model.entity.Photo
 import com.degree.backend.model.entity.Place
 
@@ -14,7 +14,7 @@ fun Photo.toDto() = PhotoDto(
 )
 
 // dto под карту
-fun Place.toPreviewDto() = PlacePreviewDto(
+fun Place.toMapDto() = PlaceMapDto(
     id = this.id,
     type = this.type ?: "unknown", // Защита от null, если в базе вдруг пусто
     latitude = this.latitude ?: 0.0,

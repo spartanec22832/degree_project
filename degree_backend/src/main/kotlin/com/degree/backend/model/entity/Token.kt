@@ -20,7 +20,7 @@ data class Token(
     @Column(name = "expires_at", nullable = false)
     val expiresAt: OffsetDateTime,
 
-    val revoked: Boolean = false,
+    var revoked: Boolean = false,
 
     @Column(name = "created_at")
     val createdAt: OffsetDateTime = OffsetDateTime.now()

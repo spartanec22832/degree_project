@@ -30,8 +30,8 @@ data class Rating(
     val place: Place,
 
     @Column(nullable = false)
-    val rating: Short,
+    var rating: Short,
 
     @Column(name = "updated_at")
-    val updatedAt: OffsetDateTime = OffsetDateTime.now()
+    var updatedAt: OffsetDateTime = OffsetDateTime.now()
 )
