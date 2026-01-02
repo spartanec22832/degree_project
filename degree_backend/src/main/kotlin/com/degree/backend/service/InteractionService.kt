@@ -58,7 +58,7 @@ class InteractionService(
             val place = favorite.place
 
             // Подгружаем фото для этого места
-            val photos = photoRepository.findByPlaceId(place.id)
+            val photos = photoRepository.findByPlaceIdOrderByOrderIndexAsc(place.id)
 
             // Подгружаем средний рейтинг
             val avgRating = ratingRepository.getAverageRatingByPlaceId(place.id)

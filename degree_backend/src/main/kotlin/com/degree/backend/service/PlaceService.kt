@@ -34,7 +34,7 @@ class PlaceService(
             .orElseThrow { RuntimeException("Place not found with id: $placeId") }
 
         // 2. Загружаем фото
-        val photos = photoRepository.findByPlaceId(placeId)
+        val photos = photoRepository.findByPlaceIdOrderByOrderIndexAsc(placeId)
 
         // 3. Считаем средний рейтинг
         val averageRating = ratingRepository.getAverageRatingByPlaceId(placeId)

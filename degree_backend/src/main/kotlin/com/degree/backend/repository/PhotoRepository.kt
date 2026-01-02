@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository
 
 @Repository
 interface PhotoRepository : JpaRepository<Photo, Long> {
-    fun findByPlaceId(placeId: Int): List<Photo>
+    fun findByPlaceIdOrderByOrderIndexAsc(placeId: Int): List<Photo>
 }

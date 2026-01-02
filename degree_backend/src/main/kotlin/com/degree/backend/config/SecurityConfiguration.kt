@@ -26,7 +26,7 @@ class SecurityConfiguration(
             .authorizeHttpRequests {
                 it.requestMatchers(
                     "/api/v1/auth/**",  // Открываем доступ к регистрации и логину
-                    "/v2/api-docs",     // Разрешаем документацию Swagger (если будешь подключать)
+                    "/v2/api-docs",
                     "/v3/api-docs",
                     "/v3/api-docs/**",
                     "/swagger-resources",
@@ -35,7 +35,9 @@ class SecurityConfiguration(
                     "/configuration/security",
                     "/swagger-ui/**",
                     "/webjars/**",
-                    "/swagger-ui.html"
+                    "/swagger-ui.html",
+                    "/images/**",
+                    "/api/v1/places/**"
                 ).permitAll()
 
                 // Все остальные запросы требуют аутентификации
