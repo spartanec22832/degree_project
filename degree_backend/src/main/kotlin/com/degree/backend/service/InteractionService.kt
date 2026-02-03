@@ -10,6 +10,7 @@ import com.degree.backend.repository.*
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.OffsetDateTime
+import com.degree.backend.exception.NotFoundException
 
 @Service
 @Transactional(readOnly = true)
@@ -34,9 +35,9 @@ class InteractionService(
         } else {
             // Создаем новое
             val user = userRepository.findById(userId)
-                .orElseThrow { RuntimeException("User not found") }
+                .orElseThrow { NotFoundException("USER_NOT_FOUND", "Пользователь не найден", mapOf("userId" to userId)) }
             val place = placeRepository.findById(request.placeId)
-                .orElseThrow { RuntimeException("Place not found") }
+                .orElseThrow { NotFoundException("PLACE_NOT_FOUND", "Место не найдено", mapOf("placeId" to request.placeId)) }
 
             // Используем твой маппер
             val favorite = request.toEntity(user, place)
@@ -78,9 +79,9 @@ class InteractionService(
     @Transactional
     fun setRating(userId: Long, request: RatingRequest) {
         val user = userRepository.findById(userId)
-            .orElseThrow { RuntimeException("User not found") }
+            .orElseThrow { NotFoundException("USER_NOT_FOUND", "Пользователь не найден", mapOf("userId" to userId)) }
         val place = placeRepository.findById(request.placeId)
-            .orElseThrow { RuntimeException("Place not found") }
+            .orElseThrow { NotFoundException("PLACE_NOT_FOUND", "Место не найдено", mapOf("placeId" to request.placeId)) }
 
         // Поиск существующей оценки.
         // Так как у тебя @EmbeddedId, мы можем искать по составному ключу RatingId

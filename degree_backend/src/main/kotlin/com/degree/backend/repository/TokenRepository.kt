@@ -10,10 +10,10 @@ import java.util.Optional
 interface TokenRepository : JpaRepository<Token, Long> {
 
     fun findByToken(token: String): Optional<Token>
-
+    fun findByTokenAndRevokedFalse(token: String): Optional<Token>
     @Query("""
         select t from Token t inner join t.user u
-        where u.id = :userId and (t.revoked = false)
+        where u.id = :userId and t.revoked = false and t.expiresAt > CURRENT_TIMESTAMP
     """)
     fun findAllValidTokenByUser(userId: Long): List<Token>
 }

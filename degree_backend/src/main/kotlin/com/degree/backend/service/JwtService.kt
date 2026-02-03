@@ -10,9 +10,12 @@ import org.springframework.stereotype.Service
 import java.security.Key
 import java.util.Date
 import java.util.function.Function
+import java.util.UUID
 
 @Service
 class JwtService {
+
+    private val JWT_EXPIRATION_MS = 1000L * 60 * 60 * 24 * 30 // 30 дней
 
     // ВАЖНО: Ключ должен быть длинным (минимум 256 бит для HS256).
     // В продакшене его хранят в application.properties, но пока оставим здесь.
@@ -40,7 +43,8 @@ class JwtService {
             .setClaims(extraClaims)
             .setSubject(userDetails.username) // Сюда попадет то, что возвращает getUsername()
             .setIssuedAt(Date(System.currentTimeMillis()))
-            .setExpiration(Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // 24 часа
+            .setExpiration(Date(System.currentTimeMillis() + JWT_EXPIRATION_MS))
+            .setId(UUID.randomUUID().toString())
             .signWith(getSignInKey(), SignatureAlgorithm.HS256)
             .compact()
     }

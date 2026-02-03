@@ -13,19 +13,19 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 class SecurityConfiguration(
     private val jwtAuthFilter: JwtAuthenticationFilter,
-    private val authenticationProvider: AuthenticationProvider
+    private val authenticationProvider: AuthenticationProvider,
+    private val apiErrorEntryPoint: ApiErrorAuthenticationEntryPoint,
+    private val apiErrorAccessDeniedHandler: ApiErrorAccessDeniedHandler
 ) {
 
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
-            // 1. Отключаем CSRF, так как мы используем REST API и JWT (сессии нет)
             .csrf { it.disable() }
-
-            // 2. Настраиваем права доступа к URL
             .authorizeHttpRequests {
                 it.requestMatchers(
-                    "/api/v1/auth/**",  // Открываем доступ к регистрации и логину
+                    "/api/v1/auth/register",
+                    "/api/v1/auth/authenticate",
                     "/v2/api-docs",
                     "/v3/api-docs",
                     "/v3/api-docs/**",
@@ -37,22 +37,17 @@ class SecurityConfiguration(
                     "/webjars/**",
                     "/swagger-ui.html",
                     "/images/**",
-                    "/api/v1/places/**"
+                    "/api/v1/places/**",
+                    "/error"               // важно
                 ).permitAll()
-
-                // Все остальные запросы требуют аутентификации
                 it.anyRequest().authenticated()
             }
-
-            // 3. Указываем, что сессия STATELESS (сервер не запоминает клиента, каждый запрос с токеном)
-            .sessionManagement {
-                it.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            .exceptionHandling {
+                it.authenticationEntryPoint(apiErrorEntryPoint)
+                it.accessDeniedHandler(apiErrorAccessDeniedHandler)
             }
-
-            // 4. Подключаем наш AuthenticationProvider (с базой данных и энкодером паролей)
+            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authenticationProvider(authenticationProvider)
-
-            // 5. Вставляем наш фильтр ПЕРЕД стандартным фильтром логина
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
 
         return http.build()

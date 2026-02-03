@@ -16,6 +16,9 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.security.Principal
 import java.time.OffsetDateTime
+import com.degree.backend.exception.BadRequestException
+import com.degree.backend.exception.ConflictException
+import com.degree.backend.exception.NotFoundException
 
 @Service
 @Transactional(readOnly = true)
@@ -29,8 +32,11 @@ class AuthService(
 
     @Transactional
     fun register(request: RegisterRequest): AuthenticationResponse {
-        if (userRepository.existsByUsername(request.username)) {
-            throw RuntimeException("Username already exists")
+        if (userRepository.existsByLogin(request.username)) {
+            throw ConflictException(
+                code = "USERNAME_ALREADY_EXISTS",
+                message = "Пользователь с таким логином уже существует"
+            )
         }
 
         val encryptedPassword = passwordEncoder.encode(request.password)
@@ -49,8 +55,13 @@ class AuthService(
             UsernamePasswordAuthenticationToken(request.username, request.password)
         )
 
-        val user = userRepository.findByUsername(request.username)
-            .orElseThrow { RuntimeException("User not found") }
+        val user = userRepository.findByLogin(request.username)
+            .orElseThrow {
+                NotFoundException(
+                    code = "USER_NOT_FOUND",
+                    message = "Пользователь не найден"
+                )
+            }
 
         val jwtToken = jwtService.generateToken(user)
         saveUserToken(user, jwtToken)
@@ -60,15 +71,15 @@ class AuthService(
 
     @Transactional
     fun changePassword(request: ChangePasswordRequest, connectedUser: Principal) {
-        val user = userRepository.findByUsername(connectedUser.name)
-            .orElseThrow { RuntimeException("User not found") }
+        val user = userRepository.findByLogin(connectedUser.name)
+            .orElseThrow { NotFoundException("USER_NOT_FOUND", "Пользователь не найден") }
 
         if (!passwordEncoder.matches(request.currentPassword, user.passwordEncrypted)) {
-            throw RuntimeException("Неверный текущий пароль")
+            throw BadRequestException("CURRENT_PASSWORD_INVALID", "Неверный текущий пароль")
         }
 
         if (request.newPassword != request.confirmationPassword) {
-            throw RuntimeException("Пароли не совпадают")
+            throw BadRequestException("PASSWORDS_DO_NOT_MATCH", "Пароли не совпадают")
         }
 
         user.passwordEncrypted = passwordEncoder.encode(request.newPassword)
@@ -83,7 +94,7 @@ class AuthService(
             user = user,
             token = jwtToken,
             revoked = false,
-            expiresAt = OffsetDateTime.now().plusHours(24)
+            expiresAt = OffsetDateTime.now().plusDays(30)
         )
         tokenRepository.save(token)
     }

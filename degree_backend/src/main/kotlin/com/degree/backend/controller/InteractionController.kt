@@ -9,7 +9,10 @@ import org.springframework.http.ResponseEntity
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.web.bind.annotation.*
 import java.security.Principal
+import jakarta.validation.Valid
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/v1/interaction")
 class InteractionController(
@@ -25,7 +28,7 @@ class InteractionController(
     // Поставить/Убрать лайк
     @PostMapping("/favorite")
     fun toggleFavorite(
-        @RequestBody request: FavoriteRequest,
+        @Valid @RequestBody request: FavoriteRequest,
         principal: Principal
     ): ResponseEntity<Void> {
         interactionService.toggleFavorite(getUserId(principal), request)
@@ -41,7 +44,7 @@ class InteractionController(
     // Поставить оценку
     @PostMapping("/rating")
     fun setRating(
-        @RequestBody request: RatingRequest,
+        @Valid @RequestBody request: RatingRequest,
         principal: Principal
     ): ResponseEntity<Void> {
         interactionService.setRating(getUserId(principal), request)

@@ -13,8 +13,8 @@ data class User(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0,
 
-    @Column(nullable = false, unique = true)
-    val username: String,
+    @Column(name = "username", nullable = false, unique = true)
+    val login: String,
 
     @Column(name = "password_encrypted", nullable = false)
     var passwordEncrypted: String,
@@ -28,8 +28,7 @@ data class User(
     }
 
     override fun getPassword(): String = passwordEncrypted
-    override fun getUsername(): String = username
-
+    override fun getUsername(): String = login
     override fun isAccountNonExpired(): Boolean = true
     override fun isAccountNonLocked(): Boolean = true
     override fun isCredentialsNonExpired(): Boolean = true

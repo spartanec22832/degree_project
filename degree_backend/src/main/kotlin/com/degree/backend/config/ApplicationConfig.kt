@@ -20,8 +20,8 @@ class ApplicationConfig(
     // Объясняем Спрингу, как искать пользователя по логину
     @Bean
     fun userDetailsService(): UserDetailsService {
-        return UserDetailsService { username ->
-            userRepository.findByUsername(username)
+        return UserDetailsService { login ->
+            userRepository.findByLogin(login)
                 .orElseThrow { UsernameNotFoundException("User not found") }
         }
     }

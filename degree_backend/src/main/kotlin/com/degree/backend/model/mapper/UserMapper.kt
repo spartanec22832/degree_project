@@ -6,7 +6,7 @@ import java.time.OffsetDateTime
 
 fun RegisterRequest.toEntity(encryptedPassword: String) = User(
     id = 0,
-    username = this.username,
+    login = this.username,
     passwordEncrypted = encryptedPassword,
     createdAt = OffsetDateTime.now()
 )

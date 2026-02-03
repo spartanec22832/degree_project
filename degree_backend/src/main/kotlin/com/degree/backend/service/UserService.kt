@@ -13,7 +13,7 @@ class UserService(
 
     // Метод для получения профиля текущего пользователя
     fun getUserProfile(username: String): UserDto {
-        val user = userRepository.findByUsername(username)
+        val user = userRepository.findByLogin(username)
             .orElseThrow { RuntimeException("User not found") }
 
         // Превращаем Entity в безопасный DTO

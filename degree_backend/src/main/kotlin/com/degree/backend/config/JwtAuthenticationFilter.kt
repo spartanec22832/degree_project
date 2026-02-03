@@ -32,7 +32,13 @@ class JwtAuthenticationFilter(
         }
 
         val jwt = authHeader.substring(7)
-        val username = jwtService.extractUsername(jwt)
+
+        val username = try {
+            jwtService.extractUsername(jwt)
+        } catch (ex: Exception) {
+            filterChain.doFilter(request, response)
+            return
+        }
 
         if (username != null && SecurityContextHolder.getContext().authentication == null) {
             val userDetails = this.userDetailsService.loadUserByUsername(username)
@@ -40,9 +46,9 @@ class JwtAuthenticationFilter(
             // ИСПРАВЛЕНИЕ ТУТ:
             // Мы проверяем только флаг revoked.
             // Срок действия проверит сам jwtService чуть ниже.
-            val isTokenValidInDb = tokenRepository.findByToken(jwt)
-                .map { t -> !t.revoked }
-                .orElse(false)
+            val isTokenValidInDb = tokenRepository
+                .findByTokenAndRevokedFalse(jwt)
+                .isPresent
 
             if (jwtService.isTokenValid(jwt, userDetails) && isTokenValidInDb) {
 

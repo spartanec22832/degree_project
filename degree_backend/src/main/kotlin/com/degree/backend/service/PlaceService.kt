@@ -10,6 +10,7 @@ import com.degree.backend.repository.PlaceRepository
 import com.degree.backend.repository.RatingRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import com.degree.backend.exception.NotFoundException
 
 @Service
 @Transactional(readOnly = true)
@@ -31,7 +32,7 @@ class PlaceService(
     fun getPlaceDetails(placeId: Int, userId: Long?): PlaceDto {
         // 1. Ищем само место
         val place = placeRepository.findById(placeId)
-            .orElseThrow { RuntimeException("Place not found with id: $placeId") }
+            .orElseThrow { NotFoundException("PLACE_NOT_FOUND", "Место не найдено", mapOf("placeId" to placeId)) }
 
         // 2. Загружаем фото
         val photos = photoRepository.findByPlaceIdOrderByOrderIndexAsc(placeId)
