@@ -10,7 +10,8 @@
         android:allowBackup="true"
         android:label="DegreeApp"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Degree_android">
+        android:theme="@style/Theme.Degree_android"
+        android:usesCleartextTraffic="true">
 
         <activity
             android:name=".MainActivity"

@@ -1,0 +1,29 @@
+package com.sfedu.degree_android.ui.components
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
+@Composable
+fun AuthRequiredStub(
+    title: String,
+    subtitle: String,
+    buttonText: String,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(title, style = MaterialTheme.typography.titleLarge)
+        Text(subtitle, style = MaterialTheme.typography.bodyMedium)
+        Button(onClick = onClick) { Text(buttonText) }
+    }
+}
