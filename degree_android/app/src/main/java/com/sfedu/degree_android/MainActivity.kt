@@ -3,45 +3,30 @@ package com.sfedu.degree_android
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import com.sfedu.degree_android.ui.screens.main.MainScreen
 import com.sfedu.degree_android.ui.theme.Degree_androidTheme
+import dagger.hilt.android.AndroidEntryPoint
+import com.yandex.mapkit.MapKitFactory
 
+
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
             Degree_androidTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                MainScreen()
             }
         }
     }
-}
+    override fun onStart() {
+        super.onStart()
+        MapKitFactory.getInstance().onStart()
+    }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    Degree_androidTheme {
-        Greeting("Android")
+    override fun onStop() {
+        MapKitFactory.getInstance().onStop()
+        super.onStop()
     }
 }
+
