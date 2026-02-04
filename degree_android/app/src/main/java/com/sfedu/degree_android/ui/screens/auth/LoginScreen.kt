@@ -48,7 +48,7 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
             value = username,
             onValueChange = { username = it },
-            label = { Text("Username") },
+            label = { Text("Логин") },
             singleLine = true,
             colors = tfColors
         )

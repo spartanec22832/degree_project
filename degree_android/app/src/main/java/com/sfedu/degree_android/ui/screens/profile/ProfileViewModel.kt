@@ -1,5 +1,8 @@
 package com.sfedu.degree_android.ui.screens.profile
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sfedu.degree_android.data.remote.dto.UserDto
@@ -23,7 +26,7 @@ class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository
 ) : ViewModel() {
 
-    var state: ProfileUiState = ProfileUiState()
+    var state by mutableStateOf(ProfileUiState())
         private set
 
     fun load() {

@@ -48,7 +48,7 @@ fun RegisterScreen(
             modifier = Modifier.fillMaxWidth(),
             value = username,
             onValueChange = { username = it },
-            label = { Text("Username") },
+            label = { Text("Логин") },
             singleLine = true,
             colors = tfColors
         )
@@ -84,7 +84,7 @@ fun RegisterScreen(
                 onClick = onSwitchToLogin,
                 enabled = !state.loading
             ) {
-                Text("Уже есть")
+                Text("Авторизация")
             }
         }
     }
