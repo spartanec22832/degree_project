@@ -40,19 +40,31 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.sfedu.degree_android.R
 import com.yandex.mapkit.Animation
 import com.yandex.mapkit.MapKitFactory
 import com.yandex.mapkit.geometry.Point
 import com.yandex.mapkit.map.CameraPosition
+import com.yandex.mapkit.map.MapObjectTapListener
+import com.yandex.mapkit.map.MapObjectCollection
 import com.yandex.mapkit.mapview.MapView
 import com.yandex.mapkit.user_location.UserLocationLayer
+import com.yandex.runtime.image.ImageProvider
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import androidx.annotation.DrawableRes
+import androidx.appcompat.content.res.AppCompatResources
 
 @Composable
 fun MapScreen(
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(0.dp)
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    onMarkerClick: (placeId: Int) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val vm: MapViewModel = hiltViewModel()
+    val state = vm.state
 
     val mapView = remember {
         MapView(context).apply {
@@ -63,11 +75,25 @@ fun MapScreen(
         }
     }
 
-    // Центр Таганрога (lat, lon)
+    // отдельная коллекция под маркеры, чтобы можно было чистить только их
+    val markersCollection: MapObjectCollection = remember {
+        mapView.mapWindow.map.mapObjects.addCollection()
+    }
+
+    val placeProvider = remember(context) {
+        imageProviderFromVector(context, R.drawable.ic_marker_place, 36)
+    }
+    val foodProvider = remember(context) {
+        imageProviderFromVector(context, R.drawable.ic_marker_food, 36)
+    }
+    val hotelProvider = remember(context) {
+        imageProviderFromVector(context, R.drawable.ic_marker_hotel, 36)
+    }
+
+    // Центр Таганрога
     val taganrogCenter = remember { Point(47.23617, 38.89688) }
     val initialZoom = 13.5f
 
-    // Актуальная позиция пользователя (для кнопки "к себе")
     var currentLocationPoint by remember { mutableStateOf<Point?>(null) }
 
     fun hasLocationPermission(): Boolean {
@@ -76,7 +102,6 @@ fun MapScreen(
         return fine || coarse
     }
 
-    // Слой пользователя MapKit (стрелка/точка)
     val userLocationLayer: UserLocationLayer = remember {
         MapKitFactory.getInstance().createUserLocationLayer(mapView.mapWindow)
     }
@@ -92,7 +117,7 @@ fun MapScreen(
         }
     )
 
-    // Один раз: ставим Таганрог и, если есть разрешения, подтягиваем last known
+    // стартовая настройка камеры + запрос точек с бэка
     LaunchedEffect(Unit) {
         val map = mapView.mapWindow.map
         map.move(
@@ -101,12 +126,13 @@ fun MapScreen(
             null
         )
 
+        vm.load()
+
         if (hasLocationPermission()) {
             userLocationLayer.isVisible = true
             userLocationLayer.isHeadingModeActive = true
             currentLocationPoint = getLastKnownPoint(context)
         } else {
-            // просим разрешение сразу, чтобы точка пользователя и кнопка работали
             permissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -116,7 +142,33 @@ fun MapScreen(
         }
     }
 
-    // Lifecycle MapView + подписка на обновления LocationManager
+    // когда пришли точки — перерисовываем маркеры
+    LaunchedEffect(state.places) {
+        markersCollection.clear()
+
+        state.places.forEach { p ->
+            val provider = markerProviderByType(
+                context = context,
+                type = p.type,
+                placeProvider = placeProvider,
+                foodProvider = foodProvider,
+                hotelProvider = hotelProvider
+            )
+
+            val placemark = markersCollection.addPlacemark(
+                Point(p.latitude, p.longitude),
+                provider
+            )
+
+            val listener = MapObjectTapListener { _, _ ->
+                onMarkerClick(p.id)
+                true
+            }
+            placemark.addTapListener(listener)
+        }
+    }
+
+    // lifecycle + LocationManager
     DisposableEffect(Unit) {
         mapView.onStart()
 
@@ -247,6 +299,16 @@ private fun ZoomSquareButton(
     }
 }
 
+private fun markerResByType(type: String): Int {
+    val t = type.trim().lowercase()
+    return when (t) {
+        "места", "place", "places" -> R.drawable.ic_marker_place
+        "еда", "food" -> R.drawable.ic_marker_food
+        "гостиницы", "hotel", "hotels" -> R.drawable.ic_marker_hotel
+        else -> R.drawable.ic_marker_place
+    }
+}
+
 private fun getLastKnownPoint(context: Context): Point? {
     val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
     val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -266,4 +328,46 @@ private fun getLastKnownPoint(context: Context): Point? {
         } catch (_: Exception) {}
     }
     return null
+}
+
+private fun markerProviderByType(
+    context: Context,
+    type: String,
+    placeProvider: ImageProvider,
+    foodProvider: ImageProvider,
+    hotelProvider: ImageProvider
+): ImageProvider {
+    val t = type.trim().lowercase()
+    return when (t) {
+        "места", "place", "places" -> placeProvider
+        "еда", "food" -> foodProvider
+        "гостиницы", "hotel", "hotels" -> hotelProvider
+        else -> placeProvider
+    }
+}
+
+/**
+ * MapKit иногда не умеет нормально работать с VectorDrawable через ImageProvider.fromResource().
+ * Поэтому конвертим vector -> bitmap и отдаём ImageProvider.fromBitmap().
+ *
+ * sizeDp — итоговый размер иконки (например 36dp).
+ */
+private fun imageProviderFromVector(
+    context: Context,
+    @DrawableRes resId: Int,
+    sizeDp: Int
+): ImageProvider {
+    val drawable = AppCompatResources.getDrawable(context, resId)
+        ?: error("Drawable $resId not found")
+
+    val density = context.resources.displayMetrics.density
+    val sizePx = (sizeDp * density).toInt().coerceAtLeast(1)
+
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    drawable.setBounds(0, 0, canvas.width, canvas.height)
+    drawable.draw(canvas)
+
+    return ImageProvider.fromBitmap(bitmap)
 }

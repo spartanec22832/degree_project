@@ -13,6 +13,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Singleton
+import com.sfedu.degree_android.data.remote.api.PlacesApi
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -50,4 +51,8 @@ object NetworkModule {
     @Provides @Singleton
     fun provideUserApi(retrofit: Retrofit): UserApi =
         retrofit.create(UserApi::class.java)
+
+    @Provides @Singleton
+    fun providePlacesApi(retrofit: Retrofit): PlacesApi =
+        retrofit.create(PlacesApi::class.java)
 }

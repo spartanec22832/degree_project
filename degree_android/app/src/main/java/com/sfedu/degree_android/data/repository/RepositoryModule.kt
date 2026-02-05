@@ -7,6 +7,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import com.sfedu.degree_android.domain.repository.PlacesRepository
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -16,4 +17,8 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindUserRepository(impl: UserRepositoryImpl): UserRepository
+
+    @Binds @Singleton
+    abstract fun bindPlacesRepository(impl: PlacesRepositoryImpl): PlacesRepository
+
 }
