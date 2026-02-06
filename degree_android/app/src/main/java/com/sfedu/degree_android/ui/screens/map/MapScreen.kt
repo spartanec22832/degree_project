@@ -10,6 +10,7 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
@@ -34,6 +35,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Star
@@ -43,6 +46,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -69,6 +73,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.sfedu.degree_android.R
 import com.sfedu.degree_android.core.network.ApiConstants
+import com.sfedu.degree_android.ui.screens.favorites.FavoritesStateViewModel
 import com.yandex.mapkit.Animation
 import com.yandex.mapkit.MapKitFactory
 import com.yandex.mapkit.geometry.Point
@@ -86,10 +91,11 @@ fun MapScreen(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     mapStateVm: MapStateViewModel,
-    onOpenDetails: (placeId: Int) -> Unit = {}
+    onOpenDetails: (placeId: Int) -> Unit = {} ,
+    token: String?
 ) {
     val context = LocalContext.current
-
+    val isAuthed = !token.isNullOrBlank()
     val vm: MapViewModel = hiltViewModel()
     val state = vm.state
 
@@ -98,6 +104,19 @@ fun MapScreen(
 
     var selectedPlaceId by remember { mutableStateOf<Int?>(null) }
     var currentLocationPoint by remember { mutableStateOf<Point?>(null) }
+
+    val favVm: FavoritesStateViewModel = hiltViewModel()
+    val isFavoriteForSelected = remember(selectedPlaceId, favVm.favoriteIds, isAuthed) {
+        if (!isAuthed) false else selectedPlaceId?.let { favVm.isFavorite(it) } ?: false
+    }
+
+    val onFavoriteClick: (Int) -> Unit = { id ->
+        if (!isAuthed) toast(
+            context = context,
+            msg = "Избранное недоступно, вы не авторизованы"
+        )
+        else favVm.toggle(id)
+    }
 
     val mapView = remember {
         MapView(context).apply {
@@ -416,6 +435,18 @@ fun MapScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
+                                val pid = selectedPlaceId
+
+                                IconButton(
+                                    onClick = { pid?.let { onFavoriteClick(it) } },
+                                    enabled = pid != null
+                                ) {
+                                    Icon(
+                                        imageVector = if (isFavoriteForSelected) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                        contentDescription = "Избранное",
+                                        tint = if (isFavoriteForSelected) MaterialTheme.colorScheme.error else LocalContentColor.current
+                                    )
+                                }
                                 Text(
                                     text = place?.name ?: "",
                                     style = MaterialTheme.typography.titleMedium,
@@ -588,3 +619,7 @@ private fun toAbsoluteUrl(baseUrl: String, pathOrUrl: String): String {
     val pathFixed = if (pathOrUrl.startsWith("/")) pathOrUrl else "/$pathOrUrl"
     return baseFixed + pathFixed
 }
+
+private fun toast(context: Context, msg: String) =
+    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+

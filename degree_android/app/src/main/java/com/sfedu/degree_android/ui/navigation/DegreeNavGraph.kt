@@ -35,9 +35,8 @@ fun DegreeNavGraph(
             val mapStateVm: MapStateViewModel = hiltViewModel()
             MapScreen(
                 mapStateVm = mapStateVm,
-                onOpenDetails = { id ->
-                    navController.navigate(Routes.placeDetails(id))
-                }
+                token = token,
+                onOpenDetails = { id -> navController.navigate(Routes.placeDetails(id)) }
             )
         }
 
@@ -48,6 +47,7 @@ fun DegreeNavGraph(
             val id = entry.arguments?.getInt(Routes.PlaceDetailsArg) ?: return@composable
             PlaceDetailsScreen(
                 placeId = id,
+                token = token,
                 onBack = { navController.popBackStack() }
             )
         }
