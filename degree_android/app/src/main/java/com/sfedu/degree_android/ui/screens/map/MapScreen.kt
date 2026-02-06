@@ -3,6 +3,8 @@ package com.sfedu.degree_android.ui.screens.map
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -10,21 +12,40 @@ import android.os.Bundle
 import android.view.ViewGroup
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.DrawableRes
+import androidx.appcompat.content.res.AppCompatResources
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.StarHalf
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -36,35 +57,47 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.sfedu.degree_android.R
+import com.sfedu.degree_android.core.network.ApiConstants
 import com.yandex.mapkit.Animation
 import com.yandex.mapkit.MapKitFactory
 import com.yandex.mapkit.geometry.Point
+import com.yandex.mapkit.map.CameraListener
 import com.yandex.mapkit.map.CameraPosition
+import com.yandex.mapkit.map.Map
 import com.yandex.mapkit.map.MapObjectTapListener
 import com.yandex.mapkit.map.MapObjectCollection
 import com.yandex.mapkit.mapview.MapView
 import com.yandex.mapkit.user_location.UserLocationLayer
 import com.yandex.runtime.image.ImageProvider
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import androidx.annotation.DrawableRes
-import androidx.appcompat.content.res.AppCompatResources
 
 @Composable
 fun MapScreen(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
-    onMarkerClick: (placeId: Int) -> Unit = {}
+    mapStateVm: MapStateViewModel,
+    onOpenDetails: (placeId: Int) -> Unit = {}
 ) {
     val context = LocalContext.current
+
     val vm: MapViewModel = hiltViewModel()
     val state = vm.state
+
+    val previewVm: PlacePreviewViewModel = hiltViewModel()
+    val previewState = previewVm.state
+
+    var selectedPlaceId by remember { mutableStateOf<Int?>(null) }
+    var currentLocationPoint by remember { mutableStateOf<Point?>(null) }
 
     val mapView = remember {
         MapView(context).apply {
@@ -75,11 +108,12 @@ fun MapScreen(
         }
     }
 
-    // отдельная коллекция под маркеры, чтобы можно было чистить только их
+    // Коллекция для маркеров
     val markersCollection: MapObjectCollection = remember {
         mapView.mapWindow.map.mapObjects.addCollection()
     }
 
+    // Иконки маркеров (vector -> bitmap)
     val placeProvider = remember(context) {
         imageProviderFromVector(context, R.drawable.ic_marker_place, 36)
     }
@@ -90,15 +124,17 @@ fun MapScreen(
         imageProviderFromVector(context, R.drawable.ic_marker_hotel, 36)
     }
 
-    // Центр Таганрога
+    // Центр Таганрога по умолчанию
     val taganrogCenter = remember { Point(47.23617, 38.89688) }
     val initialZoom = 13.5f
 
-    var currentLocationPoint by remember { mutableStateOf<Point?>(null) }
-
     fun hasLocationPermission(): Boolean {
-        val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val fine = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
         return fine || coarse
     }
 
@@ -117,14 +153,57 @@ fun MapScreen(
         }
     )
 
-    // стартовая настройка камеры + запрос точек с бэка
+    // Один "вечный" listener для всех плацемарков (иначе GC может их финализировать)
+    val placemarkTapListener = remember(previewVm) {
+        MapObjectTapListener { mapObject, _ ->
+            val id = mapObject.userData as? Int ?: return@MapObjectTapListener false
+            selectedPlaceId = id
+            previewVm.load(id)
+            true
+        }
+    }
+
+    // Слушатель камеры: сохраняем позицию для возврата "назад" на ту же точку/масштаб
+    val cameraListener = remember(mapStateVm) {
+        CameraListener { _: Map, cameraPosition: CameraPosition, _: Any, finished: Boolean ->
+            // сохраняем в конце жеста, чтобы не спамить SavedStateHandle
+            if (finished) {
+                mapStateVm.saveCamera(
+                    MapCameraState(
+                        lat = cameraPosition.target.latitude,
+                        lon = cameraPosition.target.longitude,
+                        zoom = cameraPosition.zoom,
+                        azimuth = cameraPosition.azimuth,
+                        tilt = cameraPosition.tilt
+                    )
+                )
+            }
+        }
+    }
+
+    // Инициализация камеры (restore если есть) + загрузка маркеров + пермишены
     LaunchedEffect(Unit) {
         val map = mapView.mapWindow.map
-        map.move(
-            CameraPosition(taganrogCenter, initialZoom, 0.0f, 0.0f),
-            Animation(Animation.Type.SMOOTH, 0.6f),
-            null
-        )
+
+        val saved = mapStateVm.getCameraOrNull()
+        if (saved != null) {
+            map.move(
+                CameraPosition(
+                    Point(saved.lat, saved.lon),
+                    saved.zoom,
+                    saved.azimuth,
+                    saved.tilt
+                ),
+                Animation(Animation.Type.SMOOTH, 0.35f),
+                null
+            )
+        } else {
+            map.move(
+                CameraPosition(taganrogCenter, initialZoom, 0.0f, 0.0f),
+                Animation(Animation.Type.SMOOTH, 0.6f),
+                null
+            )
+        }
 
         vm.load()
 
@@ -142,13 +221,12 @@ fun MapScreen(
         }
     }
 
-    // когда пришли точки — перерисовываем маркеры
+    // Перерисовка маркеров по данным с бэка
     LaunchedEffect(state.places) {
         markersCollection.clear()
 
         state.places.forEach { p ->
             val provider = markerProviderByType(
-                context = context,
                 type = p.type,
                 placeProvider = placeProvider,
                 foodProvider = foodProvider,
@@ -160,23 +238,25 @@ fun MapScreen(
                 provider
             )
 
-            val listener = MapObjectTapListener { _, _ ->
-                onMarkerClick(p.id)
-                true
-            }
-            placemark.addTapListener(listener)
+            placemark.userData = p.id
+            placemark.addTapListener(placemarkTapListener)
         }
     }
 
-    // lifecycle + LocationManager
+    // Lifecycle + LocationManager + CameraListener + MapKitFactory lifecycle
     DisposableEffect(Unit) {
+        MapKitFactory.getInstance().onStart()
         mapView.onStart()
 
+        val map = mapView.mapWindow.map
+        map.addCameraListener(cameraListener)
+
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        val listener = object : LocationListener {
+        val locListener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 currentLocationPoint = Point(location.latitude, location.longitude)
             }
+
             @Deprecated("Deprecated in Java")
             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
             override fun onProviderEnabled(provider: String) = Unit
@@ -184,14 +264,17 @@ fun MapScreen(
         }
 
         if (hasLocationPermission()) {
-            try { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000L, 5f, listener) } catch (_: Exception) {}
-            try { lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 2000L, 5f, listener) } catch (_: Exception) {}
+            try { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000L, 5f, locListener) } catch (_: Exception) {}
+            try { lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 2000L, 5f, locListener) } catch (_: Exception) {}
             currentLocationPoint = currentLocationPoint ?: getLastKnownPoint(context)
         }
 
         onDispose {
-            try { lm.removeUpdates(listener) } catch (_: Exception) {}
+            try { lm.removeUpdates(locListener) } catch (_: Exception) {}
+            map.removeCameraListener(cameraListener)
+
             mapView.onStop()
+            MapKitFactory.getInstance().onStop()
         }
     }
 
@@ -277,6 +360,137 @@ fun MapScreen(
                 )
             }
         }
+
+        // ---------- ПРЕДПРОСМОТР ----------
+        AnimatedVisibility(
+            visible = selectedPlaceId != null,
+            enter = slideInVertically { it },
+            exit = slideOutVertically { it },
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(
+                        start = 16.dp,
+                        end = 16.dp,
+                        bottom = contentPadding.calculateBottomPadding() + 12.dp
+                    )
+                    .fillMaxWidth()
+                    .wrapContentHeight(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    tonalElevation = 4.dp,
+                    shadowElevation = 10.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val place = previewState.place
+
+                    Column {
+                        val rawPath =
+                            place?.photos?.firstOrNull { it.isMain }?.url
+                                ?: place?.photos?.firstOrNull()?.url
+
+                        val photoUrl = rawPath?.let { toAbsoluteUrl(ApiConstants.BASE_URL, it) }
+
+                        if (photoUrl != null) {
+                            AsyncImage(
+                                model = photoUrl,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(160.dp),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(120.dp)
+                            )
+                        }
+
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = place?.name ?: "",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = {
+                                        selectedPlaceId = null
+                                        previewVm.clear()
+                                    }
+                                ) {
+                                    Icon(Icons.Filled.Close, contentDescription = "Закрыть")
+                                }
+                            }
+
+                            when {
+                                previewState.loading -> {
+                                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                    Spacer(Modifier.height(10.dp))
+                                    Text("Загрузка...")
+                                }
+
+                                previewState.error != null -> {
+                                    Text("Ошибка: ${previewState.error}")
+                                }
+
+                                place != null -> {
+                                    Spacer(Modifier.height(4.dp))
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        val rating = place.averageRating ?: 0.0
+                                        RatingStars(rating)
+                                        Text(text = String.format("%.1f", rating), fontSize = 13.sp)
+
+                                        place.worktime?.takeIf { it.isNotBlank() }?.let {
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                text = it,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontSize = 13.sp
+                                            )
+                                        }
+                                    }
+
+                                    place.description?.takeIf { it.isNotBlank() }?.let {
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(
+                                            text = it,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        val id = selectedPlaceId ?: return@Button
+                        onOpenDetails(id)
+                    },
+                    enabled = previewState.place != null && !previewState.loading,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("ПОДРОБНЕЕ", fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
     }
 }
 
@@ -299,13 +513,31 @@ private fun ZoomSquareButton(
     }
 }
 
-private fun markerResByType(type: String): Int {
+@Composable
+private fun RatingStars(rating: Double) {
+    val full = rating.toInt().coerceIn(0, 5)
+    val hasHalf = (rating - full) >= 0.5 && full < 5
+    val empty = 5 - full - if (hasHalf) 1 else 0
+
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        repeat(full) { Icon(Icons.Filled.Star, contentDescription = null) }
+        if (hasHalf) Icon(Icons.Filled.StarHalf, contentDescription = null)
+        repeat(empty) { Icon(Icons.Filled.StarBorder, contentDescription = null) }
+    }
+}
+
+private fun markerProviderByType(
+    type: String,
+    placeProvider: ImageProvider,
+    foodProvider: ImageProvider,
+    hotelProvider: ImageProvider
+): ImageProvider {
     val t = type.trim().lowercase()
     return when (t) {
-        "места", "place", "places" -> R.drawable.ic_marker_place
-        "еда", "food" -> R.drawable.ic_marker_food
-        "гостиницы", "hotel", "hotels" -> R.drawable.ic_marker_hotel
-        else -> R.drawable.ic_marker_place
+        "места", "place", "places" -> placeProvider
+        "еда", "food" -> foodProvider
+        "гостиницы", "hotel", "hotels" -> hotelProvider
+        else -> placeProvider
     }
 }
 
@@ -330,28 +562,6 @@ private fun getLastKnownPoint(context: Context): Point? {
     return null
 }
 
-private fun markerProviderByType(
-    context: Context,
-    type: String,
-    placeProvider: ImageProvider,
-    foodProvider: ImageProvider,
-    hotelProvider: ImageProvider
-): ImageProvider {
-    val t = type.trim().lowercase()
-    return when (t) {
-        "места", "place", "places" -> placeProvider
-        "еда", "food" -> foodProvider
-        "гостиницы", "hotel", "hotels" -> hotelProvider
-        else -> placeProvider
-    }
-}
-
-/**
- * MapKit иногда не умеет нормально работать с VectorDrawable через ImageProvider.fromResource().
- * Поэтому конвертим vector -> bitmap и отдаём ImageProvider.fromBitmap().
- *
- * sizeDp — итоговый размер иконки (например 36dp).
- */
 private fun imageProviderFromVector(
     context: Context,
     @DrawableRes resId: Int,
@@ -370,4 +580,11 @@ private fun imageProviderFromVector(
     drawable.draw(canvas)
 
     return ImageProvider.fromBitmap(bitmap)
+}
+
+private fun toAbsoluteUrl(baseUrl: String, pathOrUrl: String): String {
+    if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) return pathOrUrl
+    val baseFixed = if (baseUrl.endsWith("/")) baseUrl.dropLast(1) else baseUrl
+    val pathFixed = if (pathOrUrl.startsWith("/")) pathOrUrl else "/$pathOrUrl"
+    return baseFixed + pathFixed
 }
