@@ -1,6 +1,7 @@
 package com.sfedu.degree_android.data.repository
 
 import com.sfedu.degree_android.domain.repository.AuthRepository
+import com.sfedu.degree_android.domain.repository.FavoritesRepository
 import com.sfedu.degree_android.domain.repository.UserRepository
 import dagger.Binds
 import dagger.Module
@@ -20,5 +21,11 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindPlacesRepository(impl: PlacesRepositoryImpl): PlacesRepository
+
+    @Binds @Singleton
+    abstract fun bindFavoritesRepository(
+        impl: FavoritesRepositoryImpl
+    ): FavoritesRepository
+
 
 }

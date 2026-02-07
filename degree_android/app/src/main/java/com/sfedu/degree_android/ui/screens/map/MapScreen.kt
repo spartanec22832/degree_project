@@ -53,6 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -106,8 +107,13 @@ fun MapScreen(
     var currentLocationPoint by remember { mutableStateOf<Point?>(null) }
 
     val favVm: FavoritesStateViewModel = hiltViewModel()
-    val isFavoriteForSelected = remember(selectedPlaceId, favVm.favoriteIds, isAuthed) {
-        if (!isAuthed) false else selectedPlaceId?.let { favVm.isFavorite(it) } ?: false
+    val favoriteIds by favVm.favoriteIds.collectAsState()
+
+    val isFavoriteForSelected =
+        isAuthed && selectedPlaceId != null && favoriteIds.contains(selectedPlaceId)
+
+    LaunchedEffect(isAuthed) {
+        if (isAuthed) favVm.refresh()
     }
 
     val onFavoriteClick: (Int) -> Unit = { id ->

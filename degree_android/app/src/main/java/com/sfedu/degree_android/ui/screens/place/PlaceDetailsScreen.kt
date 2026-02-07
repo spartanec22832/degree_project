@@ -47,9 +47,11 @@ fun PlaceDetailsScreen(
     val isAuthed = !token.isNullOrBlank()
     val favVm: FavoritesStateViewModel = hiltViewModel()
 
-    val isFav = remember(state.place, favVm.favoriteIds, isAuthed) {
-        val id = state.place?.id
-        if (!isAuthed || id == null) false else favVm.isFavorite(id)
+    val favoriteIds by favVm.favoriteIds.collectAsState()
+    val isFav = isAuthed && favoriteIds.contains(placeId)
+
+    LaunchedEffect(isAuthed) {
+        if (isAuthed) favVm.refresh()
     }
 
     // Заглушки под будущее

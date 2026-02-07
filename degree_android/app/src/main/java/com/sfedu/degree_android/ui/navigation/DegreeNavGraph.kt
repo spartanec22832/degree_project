@@ -61,7 +61,11 @@ fun DegreeNavGraph(
                     onClick = { onRequireAuth(BottomDestination.Favorites.route) }
                 )
             } else {
-                FavoritesScreen()
+                FavoritesScreen(
+                    onOpenDetails = { id ->
+                        navController.navigate(Routes.placeDetails(id))
+                    }
+                )
             }
         }
 

@@ -3,6 +3,7 @@ package com.sfedu.degree_android.core.network
 import com.sfedu.degree_android.BuildConfig
 import com.sfedu.degree_android.core.datastore.TokenStorage
 import com.sfedu.degree_android.data.remote.api.AuthApi
+import com.sfedu.degree_android.data.remote.api.FavoritesApi
 import com.sfedu.degree_android.data.remote.api.UserApi
 import dagger.Module
 import dagger.Provides
@@ -55,4 +56,9 @@ object NetworkModule {
     @Provides @Singleton
     fun providePlacesApi(retrofit: Retrofit): PlacesApi =
         retrofit.create(PlacesApi::class.java)
+
+    @Provides @Singleton
+    fun provideFavoritesApi(retrofit: Retrofit): FavoritesApi =
+        retrofit.create(FavoritesApi::class.java)
+
 }
