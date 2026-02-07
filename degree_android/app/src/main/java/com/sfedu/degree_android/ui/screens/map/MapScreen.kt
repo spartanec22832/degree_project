@@ -18,6 +18,7 @@ import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -183,6 +184,7 @@ fun MapScreen(
         MapObjectTapListener { mapObject, _ ->
             val id = mapObject.userData as? Int ?: return@MapObjectTapListener false
             selectedPlaceId = id
+            previewVm.clear()
             previewVm.load(id)
             true
         }
@@ -486,9 +488,26 @@ fun MapScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        val rating = place.averageRating ?: 0.0
-                                        RatingStars(rating)
-                                        Text(text = String.format("%.1f", rating), fontSize = 13.sp)
+                                        val ratingAvg = place.averageRating ?: 0.0
+
+                                        RatingPickerSmall(
+                                            value = previewVm.myRating,
+                                            enabled = !previewVm.ratingSubmitting,
+                                            onChange = { newValue ->
+                                                val id = selectedPlaceId ?: return@RatingPickerSmall
+
+                                                if (!isAuthed) {
+                                                    toast(context, "Оценка недоступна, вы не авторизованы")
+                                                    return@RatingPickerSmall
+                                                }
+
+                                                previewVm.setRating(id, newValue) { msg ->
+                                                    toast(context, msg)
+                                                }
+                                            }
+                                        )
+
+                                        Text(text = String.format("%.1f", ratingAvg), fontSize = 13.sp)
 
                                         place.worktime?.takeIf { it.isNotBlank() }?.let {
                                             Spacer(Modifier.width(8.dp))
@@ -551,15 +570,24 @@ private fun ZoomSquareButton(
 }
 
 @Composable
-private fun RatingStars(rating: Double) {
-    val full = rating.toInt().coerceIn(0, 5)
-    val hasHalf = (rating - full) >= 0.5 && full < 5
-    val empty = 5 - full - if (hasHalf) 1 else 0
-
+private fun RatingPickerSmall(
+    value: Int,
+    enabled: Boolean,
+    onChange: (Int) -> Unit
+) {
     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        repeat(full) { Icon(Icons.Filled.Star, contentDescription = null) }
-        if (hasHalf) Icon(Icons.Filled.StarHalf, contentDescription = null)
-        repeat(empty) { Icon(Icons.Filled.StarBorder, contentDescription = null) }
+        for (i in 1..5) {
+            val filled = i <= value
+            Icon(
+                imageVector = if (filled) Icons.Filled.Star else Icons.Filled.StarBorder,
+                contentDescription = "Оценка $i",
+                modifier = Modifier
+                    .size(18.dp)
+                    .clickable(enabled = enabled) { onChange(i) },
+                tint = if (enabled) LocalContentColor.current
+                else LocalContentColor.current.copy(alpha = 0.5f)
+            )
+        }
     }
 }
 

@@ -54,8 +54,7 @@ fun PlaceDetailsScreen(
         if (isAuthed) favVm.refresh()
     }
 
-    // Заглушки под будущее
-    var userRating by remember { mutableIntStateOf(0) } // 0..5
+    var userRating = vm.myRating
 
     LaunchedEffect(placeId) { vm.load(placeId) }
 
@@ -173,7 +172,17 @@ fun PlaceDetailsScreen(
                                     ) {
                                         RatingPicker(
                                             value = userRating,
-                                            onChange = { userRating = it }
+                                            enabled = !vm.ratingSubmitting,
+                                            onChange = { newValue ->
+                                                if (!isAuthed) {
+                                                    Toast.makeText(context, "Оценка недоступна, вы не авторизованы", Toast.LENGTH_SHORT).show()
+                                                    return@RatingPicker
+                                                }
+                                                userRating = newValue
+                                                vm.setRating(placeId, newValue) { msg ->
+                                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
                                         )
 
                                         // рейтинг от бэка
@@ -213,6 +222,7 @@ fun PlaceDetailsScreen(
 @Composable
 private fun RatingPicker(
     value: Int,
+    enabled: Boolean,
     onChange: (Int) -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -223,7 +233,8 @@ private fun RatingPicker(
                 contentDescription = "Оценка $i",
                 modifier = Modifier
                     .size(22.dp)
-                    .clickable { onChange(i) }
+                    .clickable(enabled = enabled) { onChange(i) },
+                tint = if (enabled) LocalContentColor.current else LocalContentColor.current.copy(alpha = 0.5f)
             )
         }
     }
