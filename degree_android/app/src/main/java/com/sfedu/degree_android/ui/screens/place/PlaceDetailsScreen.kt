@@ -54,7 +54,7 @@ fun PlaceDetailsScreen(
         if (isAuthed) favVm.refresh()
     }
 
-    var userRating = vm.myRating
+    val userRating = vm.myRating
 
     LaunchedEffect(placeId) { vm.load(placeId) }
 
@@ -104,16 +104,20 @@ fun PlaceDetailsScreen(
                 .fillMaxSize()
         ) {
             when {
-                state.loading -> {
+                state.place == null && state.loading -> {
                     CircularProgressIndicator(Modifier.padding(24.dp))
                 }
 
-                state.error != null -> {
+                state.error != null && state.place == null -> {
                     Text("Ошибка: ${state.error}", modifier = Modifier.padding(16.dp))
                 }
 
                 state.place != null -> {
                     val place = state.place!!
+
+                    if (state.loading) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
 
                     val photos = place.photos
                     val pagerState = rememberPagerState(pageCount = { photos.size.coerceAtLeast(1) })
@@ -178,7 +182,6 @@ fun PlaceDetailsScreen(
                                                     Toast.makeText(context, "Оценка недоступна, вы не авторизованы", Toast.LENGTH_SHORT).show()
                                                     return@RatingPicker
                                                 }
-                                                userRating = newValue
                                                 vm.setRating(placeId, newValue) { msg ->
                                                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                                 }

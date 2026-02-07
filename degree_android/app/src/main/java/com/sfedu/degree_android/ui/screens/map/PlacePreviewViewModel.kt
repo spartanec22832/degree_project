@@ -33,22 +33,20 @@ class PlacePreviewViewModel @Inject constructor(
     var ratingSubmitting by mutableStateOf(false)
         private set
 
-    fun load(placeId: Int) {
-        state = PlacePreviewUiState(loading = true)
+    fun load(placeId: Int, keepPlace: Boolean = true) {
+        state = if (keepPlace) state.copy(loading = true, error = null) else PlacePreviewUiState(loading = true)
 
         viewModelScope.launch {
             runCatching { placesRepository.getPlace(placeId) }
                 .onSuccess { place ->
-                    state = PlacePreviewUiState(place = place)
+                    state = state.copy(loading = false, place = place, error = null)
 
-                    // ✅ подтянуть мою оценку (если не авторизован — бэк вернет 401, мы просто поставим 0)
                     runCatching { interactionRepo.getMyRating(placeId) }
                         .onSuccess { myRating = it }
                         .onFailure { myRating = 0 }
                 }
                 .onFailure { e ->
-                    state = PlacePreviewUiState(error = e.message ?: "Ошибка")
-                    myRating = 0
+                    state = state.copy(loading = false, error = e.message ?: "Ошибка")
                 }
         }
     }
@@ -66,10 +64,8 @@ class PlacePreviewViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { interactionRepo.setRating(placeId, rating) }
                 .onSuccess {
-                    // ✅ мгновенно подсветим звезды
                     myRating = rating.coerceIn(1, 5)
-                    // ✅ обновим averageRating в превью
-                    load(placeId)
+                    load(placeId, keepPlace = true)
                 }
                 .onFailure { onError(it.message ?: "Не удалось отправить оценку") }
 

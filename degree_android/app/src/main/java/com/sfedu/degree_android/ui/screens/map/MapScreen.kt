@@ -471,18 +471,26 @@ fun MapScreen(
                             }
 
                             when {
-                                previewState.loading -> {
+                                place == null && previewState.loading -> {
                                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                                    Spacer(Modifier.height(10.dp))
+                                    Spacer(Modifier.height(8.dp))
                                     Text("Загрузка...")
                                 }
 
-                                previewState.error != null -> {
+                                previewState.error != null && place == null -> {
                                     Text("Ошибка: ${previewState.error}")
                                 }
 
                                 place != null -> {
                                     Spacer(Modifier.height(4.dp))
+
+                                    if (previewState.loading) {
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(bottom = 6.dp)
+                                        )
+                                    }
 
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -518,6 +526,8 @@ fun MapScreen(
                                             )
                                         }
                                     }
+
+
 
                                     place.description?.takeIf { it.isNotBlank() }?.let {
                                         Spacer(Modifier.height(8.dp))

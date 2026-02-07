@@ -58,7 +58,7 @@ class PlaceDetailsViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { interactionRepo.setRating(placeId, rating) }
                 .onSuccess {
-                    myRating = rating
+                    myRating = rating.coerceIn(1, 5)
                     load(placeId)
                 }
                 .onFailure { e ->
