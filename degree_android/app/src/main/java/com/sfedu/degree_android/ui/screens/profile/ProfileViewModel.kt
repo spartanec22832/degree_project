@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sfedu.degree_android.core.network.ApiErrorParser
 import com.sfedu.degree_android.data.remote.dto.UserDto
 import com.sfedu.degree_android.domain.repository.AuthRepository
 import com.sfedu.degree_android.domain.repository.UserRepository
@@ -29,18 +30,57 @@ class ProfileViewModel @Inject constructor(
     var state by mutableStateOf(ProfileUiState())
         private set
 
+    var changePasswordLoading by mutableStateOf(false)
+        private set
+
     fun load() {
         state = state.copy(loading = true, error = null)
         viewModelScope.launch {
             state = try {
                 val me = userRepository.getProfile()
                 ProfileUiState(loading = false, user = me)
-            } catch (e: HttpException) {
-                ProfileUiState(loading = false, error = "HTTP ${e.code()}")
-            } catch (e: IOException) {
+            }
+            catch (e: HttpException) {
+                val msg = ApiErrorParser.humanMessage(e)
+                if (e.code() == 401) {
+                    authRepository.logout()
+                }
+                ProfileUiState(loading = false, error = msg)
+            }
+            catch (e: IOException) {
                 ProfileUiState(loading = false, error = "Сеть недоступна")
             } catch (e: Exception) {
                 ProfileUiState(loading = false, error = "Неизвестная ошибка")
+            }
+        }
+    }
+
+    fun changePassword(
+        currentPassword: String,
+        newPassword: String,
+        confirmationPassword: String,
+        onDone: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        if (changePasswordLoading) return
+        changePasswordLoading = true
+
+        viewModelScope.launch {
+            try {
+                authRepository.changePassword(
+                    currentPassword = currentPassword,
+                    newPassword = newPassword,
+                    confirmationPassword = confirmationPassword
+                )
+                onDone()
+            } catch (e: HttpException) {
+                onError(ApiErrorParser.humanMessage(e))
+            } catch (e: IOException) {
+                onError("Сеть недоступна")
+            } catch (e: Exception) {
+                onError(e.message ?: "Неизвестная ошибка")
+            } finally {
+                changePasswordLoading = false
             }
         }
     }
