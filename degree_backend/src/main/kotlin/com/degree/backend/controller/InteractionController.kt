@@ -50,4 +50,13 @@ class InteractionController(
         interactionService.setRating(getUserId(principal), request)
         return ResponseEntity.ok().build()
     }
+
+    @GetMapping("/rating/{placeId}")
+    fun getMyRating(
+        @PathVariable placeId: Int,
+        principal: Principal
+    ): ResponseEntity<Short?> {
+        return ResponseEntity.ok(interactionService.getMyRating(getUserId(principal), placeId))
+    }
+
 }

@@ -100,4 +100,9 @@ class InteractionService(
             ratingRepository.save(newRating)
         }
     }
+
+    fun getMyRating(userId: Long, placeId: Int): Short? {
+        val id = RatingId(userId = userId, placeId = placeId)
+        return ratingRepository.findById(id).orElse(null)?.rating
+    }
 }
