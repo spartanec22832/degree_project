@@ -18,6 +18,7 @@ import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,7 +35,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -42,7 +45,6 @@ import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
-import androidx.compose.material.icons.filled.StarHalf
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -82,11 +84,20 @@ import com.yandex.mapkit.geometry.Point
 import com.yandex.mapkit.map.CameraListener
 import com.yandex.mapkit.map.CameraPosition
 import com.yandex.mapkit.map.Map
-import com.yandex.mapkit.map.MapObjectTapListener
 import com.yandex.mapkit.map.MapObjectCollection
+import com.yandex.mapkit.map.MapObjectTapListener
 import com.yandex.mapkit.mapview.MapView
 import com.yandex.mapkit.user_location.UserLocationLayer
 import com.yandex.runtime.image.ImageProvider
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 @Composable
 fun MapScreen(
@@ -131,6 +142,21 @@ fun MapScreen(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
+        }
+    }
+
+    // фильтрация
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    val filteredPlaces = remember(state.places, state.enabledTypes) {
+        state.places.filter { p ->
+            when {
+                p.type.isFoodType() -> state.enabledTypes.contains(MapPlaceType.FOOD)
+                p.type.isPlacesType() -> state.enabledTypes.contains(MapPlaceType.PLACES)
+                p.type.isHotelType() -> state.enabledTypes.contains(MapPlaceType.HOTELS)
+                else -> true // если вдруг прилетит неизвестный тип — показываем (можешь сделать false)
+            }
         }
     }
 
@@ -249,10 +275,10 @@ fun MapScreen(
     }
 
     // Перерисовка маркеров по данным с бэка
-    LaunchedEffect(state.places) {
+    LaunchedEffect(filteredPlaces) {
         markersCollection.clear()
 
-        state.places.forEach { p ->
+        filteredPlaces.forEach { p ->
             val provider = markerProviderByType(
                 type = p.type,
                 placeProvider = placeProvider,
@@ -340,220 +366,294 @@ fun MapScreen(
         }
     }
 
-    Box(modifier = modifier) {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { mapView }
-        )
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = drawerState.currentValue == DrawerValue.Open,
+        drawerContent = {
+            ModalDrawerSheet {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { scope.launch { drawerState.close() } }
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Закрыть меню"
+                        )
+                    }
 
-        // Zoom кнопки справа по центру
-        Column(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            ZoomSquareButton(
-                icon = Icons.Filled.Add,
-                contentDescription = "Увеличить",
-                onClick = { zoomBy(+1f) }
-            )
-            ZoomSquareButton(
-                icon = Icons.Filled.Remove,
-                contentDescription = "Уменьшить",
-                onClick = { zoomBy(-1f) }
-            )
-        }
+                    Text(
+                        text = "Управление картой",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
 
-        // Кнопка "моя геопозиция" справа снизу над bottom bar
-        Surface(
-            color = Color.White,
-            contentColor = Color.Black,
-            shape = RoundedCornerShape(999.dp),
-            shadowElevation = 6.dp,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(
-                    end = 16.dp,
-                    bottom = contentPadding.calculateBottomPadding() + 16.dp
+                Text(
+                    text = "Фильтры",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(16.dp)
                 )
-                .size(50.dp)
-        ) {
-            IconButton(onClick = { moveToMyLocation() }) {
-                Icon(
-                    imageVector = Icons.Filled.MyLocation,
-                    contentDescription = "Моя геопозиция",
-                    tint = Color.Black
+
+                FilterCheckRow(
+                    title = MapPlaceType.FOOD.title,
+                    checked = state.enabledTypes.contains(MapPlaceType.FOOD),
+                    onToggle = { vm.toggleType(MapPlaceType.FOOD) }
                 )
+
+                FilterCheckRow(
+                    title = MapPlaceType.PLACES.title,
+                    checked = state.enabledTypes.contains(MapPlaceType.PLACES),
+                    onToggle = { vm.toggleType(MapPlaceType.PLACES) }
+                )
+
+                FilterCheckRow(
+                    title = MapPlaceType.HOTELS.title,
+                    checked = state.enabledTypes.contains(MapPlaceType.HOTELS),
+                    onToggle = { vm.toggleType(MapPlaceType.HOTELS) }
+                )
+
+                Spacer(Modifier.height(12.dp))
             }
         }
+    ) {
+        Box(modifier = modifier) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { mapView }
+            )
 
-        // ---------- ПРЕДПРОСМОТР ----------
-        AnimatedVisibility(
-            visible = selectedPlaceId != null,
-            enter = slideInVertically { it },
-            exit = slideOutVertically { it },
-            modifier = Modifier.align(Alignment.BottomCenter)
-        ) {
+            // ☰ Кнопка меню слева сверху
+            Surface(
+                color = Color.White,
+                contentColor = Color.Black,
+                shape = RoundedCornerShape(12.dp),
+                shadowElevation = 6.dp,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 16.dp, top = 16.dp)
+                    .size(44.dp)
+            ) {
+                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                    Icon(
+                        imageVector = Icons.Filled.Menu,
+                        contentDescription = "Меню",
+                        tint = Color.Black
+                    )
+                }
+            }
+
+            // Zoom кнопки справа по центру
             Column(
                 modifier = Modifier
-                    .padding(
-                        start = 16.dp,
-                        end = 16.dp,
-                        bottom = contentPadding.calculateBottomPadding() + 12.dp
-                    )
-                    .fillMaxWidth()
-                    .wrapContentHeight(),
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    tonalElevation = 4.dp,
-                    shadowElevation = 10.dp,
-                    modifier = Modifier.fillMaxWidth()
+                ZoomSquareButton(
+                    icon = Icons.Filled.Add,
+                    contentDescription = "Увеличить",
+                    onClick = { zoomBy(+1f) }
+                )
+                ZoomSquareButton(
+                    icon = Icons.Filled.Remove,
+                    contentDescription = "Уменьшить",
+                    onClick = { zoomBy(-1f) }
+                )
+            }
+
+            // Кнопка "моя геопозиция" справа снизу над bottom bar
+            Surface(
+                color = Color.White,
+                contentColor = Color.Black,
+                shape = RoundedCornerShape(999.dp),
+                shadowElevation = 6.dp,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(
+                        end = 16.dp,
+                        bottom = contentPadding.calculateBottomPadding() + 16.dp
+                    )
+                    .size(50.dp)
+            ) {
+                IconButton(onClick = { moveToMyLocation() }) {
+                    Icon(
+                        imageVector = Icons.Filled.MyLocation,
+                        contentDescription = "Моя геопозиция",
+                        tint = Color.Black
+                    )
+                }
+            }
+
+            // ---------- ПРЕДПРОСМОТР ----------
+            AnimatedVisibility(
+                visible = selectedPlaceId != null,
+                enter = slideInVertically { it },
+                exit = slideOutVertically { it },
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            bottom = contentPadding.calculateBottomPadding() + 12.dp
+                        )
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    val place = previewState.place
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        tonalElevation = 4.dp,
+                        shadowElevation = 10.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val place = previewState.place
 
-                    Column {
-                        val rawPath =
-                            place?.photos?.firstOrNull { it.isMain }?.url
-                                ?: place?.photos?.firstOrNull()?.url
+                        Column {
+                            val rawPath =
+                                place?.photos?.firstOrNull { it.isMain }?.url
+                                    ?: place?.photos?.firstOrNull()?.url
 
-                        val photoUrl = rawPath?.let { toAbsoluteUrl(ApiConstants.BASE_URL, it) }
+                            val photoUrl = rawPath?.let { toAbsoluteUrl(ApiConstants.BASE_URL, it) }
 
-                        if (photoUrl != null) {
-                            AsyncImage(
-                                model = photoUrl,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(160.dp),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(120.dp)
-                            )
-                        }
-
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                val pid = selectedPlaceId
-
-                                IconButton(
-                                    onClick = { pid?.let { onFavoriteClick(it) } },
-                                    enabled = pid != null
-                                ) {
-                                    Icon(
-                                        imageVector = if (isFavoriteForSelected) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                        contentDescription = "Избранное",
-                                        tint = if (isFavoriteForSelected) MaterialTheme.colorScheme.error else LocalContentColor.current
-                                    )
-                                }
-                                Text(
-                                    text = place?.name ?: "",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.weight(1f)
+                            if (photoUrl != null) {
+                                AsyncImage(
+                                    model = photoUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(160.dp),
+                                    contentScale = ContentScale.Crop
                                 )
-                                IconButton(
-                                    onClick = {
-                                        selectedPlaceId = null
-                                        previewVm.clear()
-                                    }
-                                ) {
-                                    Icon(Icons.Filled.Close, contentDescription = "Закрыть")
-                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(120.dp)
+                                )
                             }
 
-                            when {
-                                place == null && previewState.loading -> {
-                                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                                    Spacer(Modifier.height(8.dp))
-                                    Text("Загрузка...")
-                                }
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    val pid = selectedPlaceId
 
-                                previewState.error != null && place == null -> {
-                                    Text("Ошибка: ${previewState.error}")
-                                }
-
-                                place != null -> {
-                                    Spacer(Modifier.height(4.dp))
-
-                                    if (previewState.loading) {
-                                        LinearProgressIndicator(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(bottom = 6.dp)
+                                    IconButton(
+                                        onClick = { pid?.let { onFavoriteClick(it) } },
+                                        enabled = pid != null
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isFavoriteForSelected) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                            contentDescription = "Избранное",
+                                            tint = if (isFavoriteForSelected) MaterialTheme.colorScheme.error else LocalContentColor.current
                                         )
                                     }
-
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    Text(
+                                        text = place?.name ?: "",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    IconButton(
+                                        onClick = {
+                                            selectedPlaceId = null
+                                            previewVm.clear()
+                                        }
                                     ) {
-                                        val ratingAvg = place.averageRating ?: 0.0
+                                        Icon(Icons.Filled.Close, contentDescription = "Закрыть")
+                                    }
+                                }
 
-                                        RatingPickerSmall(
-                                            value = previewVm.myRating,
-                                            enabled = !previewVm.ratingSubmitting,
-                                            onChange = { newValue ->
-                                                val id = selectedPlaceId ?: return@RatingPickerSmall
+                                when {
+                                    place == null && previewState.loading -> {
+                                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                        Spacer(Modifier.height(8.dp))
+                                        Text("Загрузка...")
+                                    }
 
-                                                if (!isAuthed) {
-                                                    toast(context, "Оценка недоступна, вы не авторизованы")
-                                                    return@RatingPickerSmall
-                                                }
+                                    previewState.error != null && place == null -> {
+                                        Text("Ошибка: ${previewState.error}")
+                                    }
 
-                                                previewVm.setRating(id, newValue) { msg ->
-                                                    toast(context, msg)
-                                                }
-                                            }
-                                        )
+                                    place != null -> {
+                                        Spacer(Modifier.height(4.dp))
 
-                                        Text(text = String.format("%.1f", ratingAvg), fontSize = 13.sp)
-
-                                        place.worktime?.takeIf { it.isNotBlank() }?.let {
-                                            Spacer(Modifier.width(8.dp))
-                                            Text(
-                                                text = it,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                fontSize = 13.sp
+                                        if (previewState.loading) {
+                                            LinearProgressIndicator(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(bottom = 6.dp)
                                             )
                                         }
-                                    }
 
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            val ratingAvg = place.averageRating ?: 0.0
 
+                                            RatingPickerSmall(
+                                                value = previewVm.myRating,
+                                                enabled = !previewVm.ratingSubmitting,
+                                                onChange = { newValue ->
+                                                    val id = selectedPlaceId ?: return@RatingPickerSmall
 
-                                    place.description?.takeIf { it.isNotBlank() }?.let {
-                                        Spacer(Modifier.height(8.dp))
-                                        Text(
-                                            text = it,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
+                                                    if (!isAuthed) {
+                                                        toast(context, "Оценка недоступна, вы не авторизованы")
+                                                        return@RatingPickerSmall
+                                                    }
+
+                                                    previewVm.setRating(id, newValue) { msg ->
+                                                        toast(context, msg)
+                                                    }
+                                                }
+                                            )
+
+                                            Text(text = String.format("%.1f", ratingAvg), fontSize = 13.sp)
+
+                                            place.worktime?.takeIf { it.isNotBlank() }?.let {
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(
+                                                    text = it,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    fontSize = 13.sp
+                                                )
+                                            }
+                                        }
+
+                                        place.description?.takeIf { it.isNotBlank() }?.let {
+                                            Spacer(Modifier.height(8.dp))
+                                            Text(
+                                                text = it,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                Button(
-                    onClick = {
-                        val id = selectedPlaceId ?: return@Button
-                        onOpenDetails(id)
-                    },
-                    enabled = previewState.place != null && !previewState.loading,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("ПОДРОБНЕЕ", fontWeight = FontWeight.SemiBold)
+                    Button(
+                        onClick = {
+                            val id = selectedPlaceId ?: return@Button
+                            onOpenDetails(id)
+                        },
+                        enabled = previewState.place != null && !previewState.loading,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("ПОДРОБНЕЕ", fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }
@@ -599,6 +699,66 @@ private fun RatingPickerSmall(
             )
         }
     }
+}
+
+@Composable
+private fun FilterCheckRow(
+    title: String,
+    checked: Boolean,
+    onToggle: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            shape = RoundedCornerShape(6.dp),
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp,
+            border = BorderStroke(
+                width = 1.dp,
+                color = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+            ),
+            color = if (checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
+            modifier = Modifier.size(22.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                if (checked) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
+}
+
+private fun String.isFoodType(): Boolean {
+    val t = trim().lowercase()
+    return t == "еда" || t == "food"
+}
+
+private fun String.isPlacesType(): Boolean {
+    val t = trim().lowercase()
+    return t == "места" || t == "place" || t == "places"
+}
+
+private fun String.isHotelType(): Boolean {
+    val t = trim().lowercase()
+    return t == "гостиницы" || t == "hotel" || t == "hotels"
 }
 
 private fun markerProviderByType(

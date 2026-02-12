@@ -11,9 +11,20 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class MapPlaceType(val title: String) {
+    FOOD("Еда"),
+    PLACES("Места"),
+    HOTELS("Гостиницы")
+}
+
 data class MapUiState(
     val loading: Boolean = false,
     val places: List<PlaceMapDto> = emptyList(),
+    val enabledTypes: Set<MapPlaceType> = setOf(
+        MapPlaceType.FOOD,
+        MapPlaceType.PLACES,
+        MapPlaceType.HOTELS
+    ),
     val error: String? = null
 )
 
@@ -34,5 +45,15 @@ class MapViewModel @Inject constructor(
                 .onSuccess { state = state.copy(loading = false, places = it) }
                 .onFailure { state = state.copy(loading = false, error = it.message ?: "Ошибка загрузки") }
         }
+    }
+
+    fun toggleType(type: MapPlaceType) {
+        val current = state.enabledTypes
+        val next =
+            if (current.contains(type)) current - type
+            else current + type
+
+        // чтобы пользователь не мог снять вообще всё (опционально, но удобно)
+        state = state.copy(enabledTypes = if (next.isEmpty()) current else next)
     }
 }
