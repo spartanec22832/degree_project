@@ -34,6 +34,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -41,18 +43,26 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Button
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -60,6 +70,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,7 +78,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -80,6 +94,7 @@ import com.sfedu.degree_android.core.network.ApiConstants
 import com.sfedu.degree_android.ui.screens.favorites.FavoritesStateViewModel
 import com.yandex.mapkit.Animation
 import com.yandex.mapkit.MapKitFactory
+import com.yandex.mapkit.geometry.Circle
 import com.yandex.mapkit.geometry.Point
 import com.yandex.mapkit.map.CameraListener
 import com.yandex.mapkit.map.CameraPosition
@@ -89,14 +104,6 @@ import com.yandex.mapkit.map.MapObjectTapListener
 import com.yandex.mapkit.mapview.MapView
 import com.yandex.mapkit.user_location.UserLocationLayer
 import com.yandex.runtime.image.ImageProvider
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.NavigationDrawerItemDefaults
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 
 @Composable
@@ -149,13 +156,39 @@ fun MapScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    val filteredPlaces = remember(state.places, state.enabledTypes) {
+    val placesByType = remember(state.places, state.enabledTypes) {
         state.places.filter { p ->
             when {
                 p.type.isFoodType() -> state.enabledTypes.contains(MapPlaceType.FOOD)
                 p.type.isPlacesType() -> state.enabledTypes.contains(MapPlaceType.PLACES)
                 p.type.isHotelType() -> state.enabledTypes.contains(MapPlaceType.HOTELS)
-                else -> true // если вдруг прилетит неизвестный тип — показываем (можешь сделать false)
+                else -> true
+            }
+        }
+    }
+
+    val filteredPlaces = remember(
+        placesByType,
+        state.bufferEnabled,
+        state.bufferRadiusMeters,
+        currentLocationPoint
+    ) {
+        if (!state.bufferEnabled) {
+            placesByType
+        } else {
+            val center = currentLocationPoint
+            if (center == null) {
+                // буфер включен, но локации нет — пока ничего не режем
+                placesByType
+            } else {
+                placesByType.filter { p ->
+                    distanceMeters(
+                        lat1 = center.latitude,
+                        lon1 = center.longitude,
+                        lat2 = p.latitude,
+                        lon2 = p.longitude
+                    ) <= state.bufferRadiusMeters
+                }
             }
         }
     }
@@ -174,6 +207,11 @@ fun MapScreen(
     }
     val hotelProvider = remember(context) {
         imageProviderFromVector(context, R.drawable.ic_marker_hotel, 36)
+    }
+
+    // Коллекция для буферного круга
+    val bufferCollection: MapObjectCollection = remember {
+        mapView.mapWindow.map.mapObjects.addCollection()
     }
 
     // Центр Таганрога по умолчанию
@@ -272,6 +310,20 @@ fun MapScreen(
                 )
             )
         }
+    }
+
+    LaunchedEffect(state.bufferEnabled, state.bufferRadiusMeters, currentLocationPoint) {
+        bufferCollection.clear()
+
+        if (!state.bufferEnabled) return@LaunchedEffect
+        val center = currentLocationPoint ?: return@LaunchedEffect
+
+        val circleObj = bufferCollection.addCircle(
+            Circle(center, state.bufferRadiusMeters)
+        )
+        circleObj.fillColor = 0x332196F3.toInt()    // полупрозрачная заливка
+        circleObj.strokeColor = 0xAA2196F3.toInt()  // обводка
+        circleObj.strokeWidth = 2.5f
     }
 
     // Перерисовка маркеров по данным с бэка
@@ -415,6 +467,83 @@ fun MapScreen(
                     title = MapPlaceType.HOTELS.title,
                     checked = state.enabledTypes.contains(MapPlaceType.HOTELS),
                     onToggle = { vm.toggleType(MapPlaceType.HOTELS) }
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    text = "Буферная зона",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(16.dp)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (state.bufferEnabled) "Включена" else "Выключена",
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = state.bufferEnabled,
+                        onCheckedChange = { vm.setBufferEnabled(it) }
+                    )
+                }
+
+                val focusManager = LocalFocusManager.current
+                var radiusText by remember { mutableStateOf(state.bufferRadiusMeters.toInt().toString()) }
+
+                LaunchedEffect(state.bufferRadiusMeters) {
+                    val newText = state.bufferRadiusMeters.toInt().toString()
+                    if (radiusText != newText) radiusText = newText
+                }
+
+                Text(
+                    text = "Радиус (м)",
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                )
+
+                OutlinedTextField(
+                    value = radiusText,
+                    onValueChange = { newValue ->
+                        // только цифры
+                        val digitsOnly = newValue.filter { it.isDigit() }
+                        radiusText = digitsOnly
+
+                        val asInt = digitsOnly.toIntOrNull()
+                        if (asInt != null) {
+                            vm.setBufferRadiusMeters(asInt.toFloat())
+                        }
+                    },
+                    enabled = state.bufferEnabled,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            focusManager.clearFocus()
+                            // если пользователь оставил пусто, то вернём актуальное из state
+                            if (radiusText.isBlank()) {
+                                radiusText = state.bufferRadiusMeters.toInt().toString()
+                            }
+                        }
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
+
+                Slider(
+                    value = state.bufferRadiusMeters,
+                    onValueChange = { vm.setBufferRadiusMeters(it) },
+                    valueRange = 100f..5000f,
+                    enabled = state.bufferEnabled,
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
 
                 Spacer(Modifier.height(12.dp))
@@ -699,6 +828,12 @@ private fun RatingPickerSmall(
             )
         }
     }
+}
+
+private fun distanceMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
+    val out = FloatArray(1)
+    Location.distanceBetween(lat1, lon1, lat2, lon2, out)
+    return out[0]
 }
 
 @Composable

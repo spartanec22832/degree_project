@@ -25,7 +25,11 @@ data class MapUiState(
         MapPlaceType.PLACES,
         MapPlaceType.HOTELS
     ),
+    val bufferEnabled: Boolean = false,
+    val bufferRadiusMeters: Float = 1000f, // по умолчанию 1 км
+
     val error: String? = null
+
 )
 
 @HiltViewModel
@@ -55,5 +59,13 @@ class MapViewModel @Inject constructor(
 
         // чтобы пользователь не мог снять вообще всё (опционально, но удобно)
         state = state.copy(enabledTypes = if (next.isEmpty()) current else next)
+    }
+
+    fun setBufferEnabled(enabled: Boolean) {
+        state = state.copy(bufferEnabled = enabled)
+    }
+
+    fun setBufferRadiusMeters(value: Float) {
+        state = state.copy(bufferRadiusMeters = value.coerceIn(100f, 5000f))
     }
 }
