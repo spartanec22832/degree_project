@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -49,12 +51,15 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
@@ -63,6 +68,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -91,28 +97,30 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.sfedu.degree_android.R
 import com.sfedu.degree_android.core.network.ApiConstants
+import com.sfedu.degree_android.ui.components.ZonePlaceMiniCard
 import com.sfedu.degree_android.ui.screens.favorites.FavoritesStateViewModel
+import com.sfedu.degree_android.ui.screens.favorites.FavoritesViewModel
 import com.yandex.mapkit.Animation
 import com.yandex.mapkit.MapKitFactory
 import com.yandex.mapkit.geometry.Circle
+import com.yandex.mapkit.geometry.Geometry
 import com.yandex.mapkit.geometry.Point
 import com.yandex.mapkit.map.CameraListener
 import com.yandex.mapkit.map.CameraPosition
 import com.yandex.mapkit.map.Map
 import com.yandex.mapkit.map.MapObjectCollection
 import com.yandex.mapkit.map.MapObjectTapListener
+import com.yandex.mapkit.map.VisibleRegion
 import com.yandex.mapkit.mapview.MapView
 import com.yandex.mapkit.user_location.UserLocationLayer
 import com.yandex.runtime.image.ImageProvider
 import kotlinx.coroutines.launch
-import com.yandex.mapkit.geometry.Geometry
-import com.yandex.mapkit.map.VisibleRegion
 import kotlin.math.asin
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.round
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
     modifier: Modifier = Modifier,
@@ -199,6 +207,13 @@ fun MapScreen(
             }
         }
     }
+
+    // переменные состояния для сайдбар-кнопки "показать объекты"
+    val listVm: FavoritesViewModel = hiltViewModel()
+    val listState = listVm.state
+
+    var showObjectsSheet by remember { mutableStateOf(false) }
+    val objectsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // Коллекция для маркеров
     val markersCollection: MapObjectCollection = remember {
@@ -378,6 +393,13 @@ fun MapScreen(
 
             placemark.userData = p.id
             placemark.addTapListener(placemarkTapListener)
+        }
+    }
+
+    val filteredIds = remember(filteredPlaces) { filteredPlaces.map { it.id }.toSet() }
+    LaunchedEffect(showObjectsSheet, filteredIds) {
+        if (showObjectsSheet) {
+            listVm.load(filteredIds)
         }
     }
 
@@ -585,6 +607,22 @@ fun MapScreen(
                 )
 
                 Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        val ids = filteredPlaces.map { it.id }.toSet()
+                        listVm.load(ids)
+                        showObjectsSheet = true
+                        scope.launch { drawerState.close() }
+                    },
+                    enabled = state.bufferEnabled && filteredPlaces.isNotEmpty(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("ПОКАЗАТЬ ОБЪЕКТЫ (${filteredPlaces.size})")
+                }
             }
         }
     ) {
@@ -825,6 +863,58 @@ fun MapScreen(
             }
         }
     }
+
+    if (showObjectsSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showObjectsSheet = false },
+            sheetState = objectsSheetState
+        ) {
+            Text(
+                text = "Объекты в зоне (${filteredPlaces.size})",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
+            when {
+                listState.loading -> {
+                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+
+                listState.error != null -> {
+                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        Text("Ошибка: ${listState.error}")
+                    }
+                }
+
+                listState.items.isEmpty() -> {
+                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        Text("Нет объектов")
+                    }
+                }
+
+                else -> {
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(listState.items, key = { it.id }) { place ->
+                            ZonePlaceMiniCard(
+                                place = place,
+                                isFavorite = isAuthed && favoriteIds.contains(place.id),
+                                favoriteEnabled = isAuthed,
+                                onClick = { onOpenDetails(place.id) },
+                                onFavoriteClick = { onFavoriteClick(place.id) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+        }
+    }
 }
 
 @Composable
@@ -1060,5 +1150,6 @@ private fun toAbsoluteUrl(baseUrl: String, pathOrUrl: String): String {
 
 private fun toast(context: Context, msg: String) =
     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+
 
 
