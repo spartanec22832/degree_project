@@ -66,6 +66,13 @@ class MapViewModel @Inject constructor(
     }
 
     fun setBufferRadiusMeters(value: Float) {
-        state = state.copy(bufferRadiusMeters = value.coerceIn(100f, 5000f))
+        val minR = 100f
+        val maxR = 3000f
+        val step = 50f
+
+        val clamped = value.coerceIn(minR, maxR)
+        val snapped = (kotlin.math.round(clamped / step) * step).coerceIn(minR, maxR)
+
+        state = state.copy(bufferRadiusMeters = snapped)
     }
 }

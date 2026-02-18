@@ -105,6 +105,13 @@ import com.yandex.mapkit.mapview.MapView
 import com.yandex.mapkit.user_location.UserLocationLayer
 import com.yandex.runtime.image.ImageProvider
 import kotlinx.coroutines.launch
+import com.yandex.mapkit.geometry.Geometry
+import com.yandex.mapkit.map.VisibleRegion
+import kotlin.math.asin
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.round
 
 @Composable
 fun MapScreen(
@@ -318,12 +325,38 @@ fun MapScreen(
         if (!state.bufferEnabled) return@LaunchedEffect
         val center = currentLocationPoint ?: return@LaunchedEffect
 
-        val circleObj = bufferCollection.addCircle(
-            Circle(center, state.bufferRadiusMeters)
-        )
+        val circle = Circle(center, state.bufferRadiusMeters)
+
+        val circleObj = bufferCollection.addCircle(circle)
         circleObj.fillColor = 0x332196F3.toInt()    // полупрозрачная заливка
         circleObj.strokeColor = 0xAA2196F3.toInt()  // обводка
         circleObj.strokeWidth = 2.5f
+
+        // ✅ Вариант B: двигаем камеру только если круг не помещается на экране
+        val map = mapView.mapWindow.map
+        val vr = map.visibleRegion
+
+        val fits = isCircleFullyVisible(
+            center = center,
+            radiusMeters = state.bufferRadiusMeters,
+            vr = vr
+        )
+
+        if (!fits) {
+            val current = map.cameraPosition
+            val fitted = map.cameraPosition(
+                Geometry.fromCircle(circle),
+                current.azimuth,
+                current.tilt,
+                null
+            )
+
+            map.move(
+                fitted,
+                Animation(Animation.Type.SMOOTH, 0.55f),
+                null
+            )
+        }
     }
 
     // Перерисовка маркеров по данным с бэка
@@ -538,10 +571,15 @@ fun MapScreen(
                         .padding(horizontal = 16.dp)
                 )
 
+                val minR = 100f
+                val maxR = 3000f
+                val step = 50f
+
                 Slider(
                     value = state.bufferRadiusMeters,
                     onValueChange = { vm.setBufferRadiusMeters(it) },
-                    valueRange = 100f..5000f,
+                    valueRange = minR..maxR,
+                    steps = ((maxR - minR) / step).toInt() - 1,
                     enabled = state.bufferEnabled,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
@@ -881,6 +919,67 @@ private fun FilterCheckRow(
     }
 }
 
+// адаптация карты под размер буфера
+private fun destinationPoint(from: Point, distanceMeters: Double, bearingDegrees: Double): Point {
+    val R = 6371000.0
+    val brng = Math.toRadians(bearingDegrees)
+    val lat1 = Math.toRadians(from.latitude)
+    val lon1 = Math.toRadians(from.longitude)
+    val dByR = distanceMeters / R
+
+    val lat2 = asin(sin(lat1) * cos(dByR) + cos(lat1) * sin(dByR) * cos(brng))
+    val lon2 = lon1 + atan2(
+        sin(brng) * sin(dByR) * cos(lat1),
+        cos(dByR) - sin(lat1) * sin(lat2)
+    )
+
+    return Point(Math.toDegrees(lat2), Math.toDegrees(lon2))
+}
+
+private fun isPointInConvexQuad(p: Point, vr: VisibleRegion): Boolean {
+    val poly = listOf(vr.topLeft, vr.topRight, vr.bottomRight, vr.bottomLeft)
+
+    fun cross(a: Point, b: Point, c: Point): Double {
+        val abx = b.longitude - a.longitude
+        val aby = b.latitude - a.latitude
+        val acx = c.longitude - a.longitude
+        val acy = c.latitude - a.latitude
+        return abx * acy - aby * acx
+    }
+
+    var sign = 0
+    for (i in 0..3) {
+        val a = poly[i]
+        val b = poly[(i + 1) % 4]
+        val z = cross(a, b, p)
+        val s = when {
+            z > 0 -> 1
+            z < 0 -> -1
+            else -> 0
+        }
+        if (s != 0) {
+            if (sign == 0) sign = s
+            else if (sign != s) return false
+        }
+    }
+    return true
+}
+
+private fun isCircleFullyVisible(center: Point, radiusMeters: Float, vr: VisibleRegion): Boolean {
+    val r = radiusMeters.toDouble()
+
+    val north = destinationPoint(center, r, 0.0)
+    val east = destinationPoint(center, r, 90.0)
+    val south = destinationPoint(center, r, 180.0)
+    val west = destinationPoint(center, r, 270.0)
+
+    return isPointInConvexQuad(north, vr) &&
+            isPointInConvexQuad(east, vr) &&
+            isPointInConvexQuad(south, vr) &&
+            isPointInConvexQuad(west, vr)
+}
+
+
 private fun String.isFoodType(): Boolean {
     val t = trim().lowercase()
     return t == "еда" || t == "food"
@@ -961,4 +1060,5 @@ private fun toAbsoluteUrl(baseUrl: String, pathOrUrl: String): String {
 
 private fun toast(context: Context, msg: String) =
     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+
 
