@@ -2,6 +2,7 @@ package com.degree.backend.controller
 
 import com.degree.backend.model.dto.PlaceDto
 import com.degree.backend.model.dto.PlaceMapDto
+import com.degree.backend.model.dto.PlaceSearchDto
 import com.degree.backend.model.entity.User
 import com.degree.backend.service.PlaceService
 import org.springframework.http.ResponseEntity
@@ -23,7 +24,7 @@ class PlaceController(
 
     // 2. Поиск - доступно всем
     @GetMapping("/search")
-    fun searchPlaces(@RequestParam query: String): ResponseEntity<List<PlaceMapDto>> {
+    open fun searchPlaces(@RequestParam query: String): ResponseEntity<List<PlaceSearchDto>> {
         return ResponseEntity.ok(placeService.searchPlaces(query))
     }
 

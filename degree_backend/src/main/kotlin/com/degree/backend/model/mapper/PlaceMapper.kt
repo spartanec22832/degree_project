@@ -3,6 +3,7 @@ package com.degree.backend.model.mapper
 import com.degree.backend.model.dto.PhotoDto
 import com.degree.backend.model.dto.PlaceDto
 import com.degree.backend.model.dto.PlaceMapDto
+import com.degree.backend.model.dto.PlaceSearchDto
 import com.degree.backend.model.entity.Photo
 import com.degree.backend.model.entity.Place
 
@@ -11,6 +12,14 @@ fun Photo.toDto() = PhotoDto(
     id = this.id,
     url = this.url,
     isMain = this.isMain
+)
+
+// dto под поиск
+fun Place.toSearchDto() = PlaceSearchDto(
+    id = this.id,
+    name = this.name ?: "",
+    type = this.type ?: "",
+    category = this.category ?: ""
 )
 
 // dto под карту

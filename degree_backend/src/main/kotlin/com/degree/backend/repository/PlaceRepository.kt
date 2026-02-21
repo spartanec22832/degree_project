@@ -10,5 +10,5 @@ interface PlaceRepository : JpaRepository<Place, Int> {
     fun findByType(type: String): List<Place>
 
     // поиск места по части названия без учета регистра
-    fun findByNameContainingIgnoreCase(name: String): List<Place>
+    fun findTop20ByNameContainingIgnoreCaseOrderByNameAsc(name: String): List<Place>
 }

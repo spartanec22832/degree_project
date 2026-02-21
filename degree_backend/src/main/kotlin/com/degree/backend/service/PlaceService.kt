@@ -11,6 +11,8 @@ import com.degree.backend.repository.RatingRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import com.degree.backend.exception.NotFoundException
+import com.degree.backend.model.dto.PlaceSearchDto
+import com.degree.backend.model.mapper.toSearchDto
 
 @Service
 @Transactional(readOnly = true)
@@ -55,9 +57,22 @@ class PlaceService(
         )
     }
 
-    // Дополнительно: Поиск (понадобится для SearchBar)
-    fun searchPlaces(query: String): List<PlaceMapDto> {
-        return placeRepository.findByNameContainingIgnoreCase(query)
-            .map { it.toMapDto() }
+    // поиск
+    open fun searchPlaces(query: String): List<PlaceSearchDto> {
+        val spaceRegex = Regex("\\s+")
+
+        // нормализация
+        val q = query.trim().replace(spaceRegex, " ").take(100)
+
+        // срезаем короткие запросы
+        if (q.length < 2) return emptyList()
+
+        // самое длинное слово - ключ
+        val words = q.split(spaceRegex).filter { it.length >= 2 }
+        val key = words.maxByOrNull { it.length } ?: q
+
+        return placeRepository
+            .findTop20ByNameContainingIgnoreCaseOrderByNameAsc(key)
+            .map { it.toSearchDto() }
     }
 }
