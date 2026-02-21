@@ -119,6 +119,9 @@ import kotlin.math.asin
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.shape.CircleShape
+import com.sfedu.degree_android.ui.screens.map.MapSearchViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -133,6 +136,9 @@ fun MapScreen(
     val isAuthed = !token.isNullOrBlank()
     val vm: MapViewModel = hiltViewModel()
     val state = vm.state
+
+    val searchVm: MapSearchViewModel = hiltViewModel()
+    val searchState by searchVm.state.collectAsState()
 
     val previewVm: PlacePreviewViewModel = hiltViewModel()
     val previewState = previewVm.state
@@ -347,7 +353,6 @@ fun MapScreen(
         circleObj.strokeColor = 0xAA2196F3.toInt()  // обводка
         circleObj.strokeWidth = 2.5f
 
-        // ✅ Вариант B: двигаем камеру только если круг не помещается на экране
         val map = mapView.mapWindow.map
         val vr = map.visibleRegion
 
@@ -632,7 +637,7 @@ fun MapScreen(
                 factory = { mapView }
             )
 
-            // ☰ Кнопка меню слева сверху
+            // Кнопка меню слева сверху
             Surface(
                 color = Color.White,
                 contentColor = Color.Black,
@@ -649,6 +654,127 @@ fun MapScreen(
                         contentDescription = "Меню",
                         tint = Color.Black
                     )
+                }
+            }
+
+            // Кнопка поиска справа сверху
+            Surface(
+                color = Color.White,
+                contentColor = Color.Black,
+                shape = CircleShape,
+                shadowElevation = 6.dp,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = 16.dp, top = 16.dp)
+                    .size(44.dp)
+            ) {
+                IconButton(onClick = { searchVm.toggleExpanded() }) {
+                    Icon(
+                        imageVector = Icons.Filled.Search,
+                        contentDescription = "Поиск",
+                        tint = Color.Black
+                    )
+                }
+            }
+
+            // Панель поиска по центру сверху
+            AnimatedVisibility(
+                visible = searchState.expanded,
+                enter = slideInVertically { -it },
+                exit = slideOutVertically { -it },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 12.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    tonalElevation = 2.dp,
+                    shadowElevation = 10.dp,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                modifier = Modifier.weight(1f),
+                                value = searchState.query,
+                                onValueChange = { searchVm.setQuery(it) },
+                                singleLine = true,
+                                placeholder = { Text("Введите название объекта") },
+                                trailingIcon = {
+                                    if (searchState.query.isNotEmpty()) {
+                                        IconButton(onClick = { searchVm.setQuery("") }) {
+                                            Icon(Icons.Filled.Close, contentDescription = "Очистить")
+                                        }
+                                    }
+                                }
+                            )
+
+                            Spacer(Modifier.width(8.dp))
+
+                            IconButton(onClick = { searchVm.collapse() }) {
+                                Icon(Icons.Filled.Close, contentDescription = "Закрыть")
+                            }
+                        }
+
+                        if (searchState.loading) {
+                            Spacer(Modifier.height(8.dp))
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+
+                        searchState.error?.let { err ->
+                            Spacer(Modifier.height(8.dp))
+                            Text("Ошибка: $err")
+                        }
+
+                        val showEmpty =
+                            !searchState.loading &&
+                                    searchState.error == null &&
+                                    searchState.query.trim().length >= 2 &&
+                                    searchState.results.isEmpty()
+
+                        if (showEmpty) {
+                            Spacer(Modifier.height(8.dp))
+                            Text("Ничего не найдено")
+                        }
+
+                        if (searchState.results.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(320.dp)
+                            ) {
+                                items(searchState.results, key = { it.id }) { item ->
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                // закрываем поиск + чистим текущий preview
+                                                searchVm.collapse()
+                                                selectedPlaceId = null
+                                                previewVm.clear()
+
+                                                // переход в карточку объекта
+                                                onOpenDetails(item.id)
+                                            }
+                                            .padding(vertical = 10.dp, horizontal = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = item.name,
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                        Text(
+                                            text = "${item.category} • ${item.type}",
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -696,7 +822,7 @@ fun MapScreen(
 
             // ---------- ПРЕДПРОСМОТР ----------
             AnimatedVisibility(
-                visible = selectedPlaceId != null,
+                visible = selectedPlaceId != null && !searchState.expanded,
                 enter = slideInVertically { it },
                 exit = slideOutVertically { it },
                 modifier = Modifier.align(Alignment.BottomCenter)
