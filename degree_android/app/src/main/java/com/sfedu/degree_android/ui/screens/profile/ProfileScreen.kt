@@ -39,6 +39,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material3.Switch
+import com.sfedu.degree_android.ui.theme.ThemeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,6 +53,8 @@ fun ProfileScreen(
 
     val state = vm.state
     val context = LocalContext.current
+    val themeVm: ThemeViewModel = hiltViewModel()
+    val isDark by themeVm.darkTheme.collectAsStateWithLifecycle()
 
     var showChangePassword by rememberSaveable { mutableStateOf(false) }
 
@@ -103,6 +108,35 @@ fun ProfileScreen(
                         ) {
                             ProfileRow(label = "Логин", value = user.username)
                             ProfileRow(label = "Дата регистрации", value = formatCreatedAt(user.createdAt))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+                    // переключатель темы светлая/темная
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        tonalElevation = 2.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Тёмная тема", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    text = if (isDark) "Включена" else "Выключена",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = isDark,
+                                onCheckedChange = { themeVm.setDarkTheme(it) }
+                            )
                         }
                     }
 
