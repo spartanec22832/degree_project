@@ -1,5 +1,7 @@
 package com.sfedu.degree_android.ui.screens.place
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -30,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.sfedu.degree_android.core.network.ApiConstants
+import com.sfedu.degree_android.core.util.formatWorktime
 import com.sfedu.degree_android.data.remote.dto.PlaceDto
 import com.sfedu.degree_android.ui.screens.favorites.FavoritesStateViewModel
 
@@ -251,11 +254,7 @@ private fun InfoSection(place: PlaceDto) {
             InfoCard(
                 icon = Icons.Filled.LocationOn,
                 title = "Адрес",
-                body = addr,
-                actionText = "Показать на карте",
-                onAction = {
-                    // Заглушка: позже сделаем возврат на карту + центрирование на объект
-                }
+                body = addr
             )
         }
 
@@ -269,11 +268,11 @@ private fun InfoSection(place: PlaceDto) {
         }
 
         // Часы работы
-        place.worktime?.takeIf { it.isNotBlank() }?.let { wt ->
+        formatWorktime(place.worktime)?.let { formatted ->
             InfoCard(
                 icon = Icons.Filled.Schedule,
                 title = "Часы работы",
-                body = wt
+                body = formatted
             )
         }
 
@@ -343,20 +342,42 @@ private fun InfoCard(
     }
 }
 
+
 @Composable
 private fun ContactLine(text: String) {
-    val icon = if (text.startsWith("http")) Icons.Filled.Link else Icons.Filled.Phone
+    val context = LocalContext.current
+    val isLink = text.startsWith("http://") || text.startsWith("https://")
+
+    val icon = if (isLink) Icons.Filled.Link else Icons.Filled.Phone
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 6.dp)
+        modifier = Modifier
+            .padding(vertical = 6.dp)
+            .then(
+                if (isLink) {
+                    Modifier.clickable {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(text))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Не удалось открыть ссылку", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else {
+                    Modifier
+                }
+            )
     ) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(10.dp))
-        Text(text)
+        Text(
+            text = text,
+            color = if (isLink) MaterialTheme.colorScheme.primary else LocalContentColor.current
+        )
     }
 }
 
-// Важно: пусть будет top-level (без private), чтобы не ловить ошибки со scope
 fun toAbsoluteUrl(baseUrl: String, pathOrUrl: String): String {
     if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) return pathOrUrl
     val baseFixed = if (baseUrl.endsWith("/")) baseUrl.dropLast(1) else baseUrl

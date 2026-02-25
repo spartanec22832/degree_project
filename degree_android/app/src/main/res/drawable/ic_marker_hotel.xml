@@ -3,11 +3,46 @@
     android:height="36dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+
+    <!-- Pin -->
     <path
-        android:fillColor="#FFEA4335"
-        android:pathData="M12,2C8.13,2 5,5.13 5,9c0,5.25 7,13 7,13s7,-7.75 7,-13c0,-3.87 -3.13,-7 -7,-7z" />
-    <!-- bed simplified -->
+        android:fillColor="#EA4335"
+        android:pathData="M12,2C8.13,2 5,5.13 5,9c0,5.25 7,13 7,13s7,-7.75 7,-13c0,-3.87 -3.13,-7 -7,-7z"/>
+
+    <!-- Pin outline -->
     <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M8,10c0,-0.55 0.45,-1 1,-1h6c0.55,0 1,0.45 1,1v3h-8v-3zM7,13h10v1h-1v1h-1v-1H9v1H8v-1H7v-2z" />
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#B9352A"
+        android:strokeWidth="1.2"
+        android:strokeLineJoin="round"
+        android:pathData="M12,2C8.13,2 5,5.13 5,9c0,5.25 7,13 7,13s7,-7.75 7,-13c0,-3.87 -3.13,-7 -7,-7z"/>
+
+    <!-- White circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,4.2a4.8,4.8 0 1,0 0,9.6a4.8,4.8 0 1,0 0,-9.6z"/>
+
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:scaleX="0.60"
+        android:scaleY="0.60"
+        android:translateY="-2.4">
+
+        <path
+            android:fillColor="#EA4335"
+            android:pathData="
+            M6,9.3 h1.4 v5.2 H6 Z
+            M16.6,9.3 h1.4 v5.2 H16.6 Z
+
+            M7.2,10.2 H15.6
+            C16.3,10.2 16.8,10.7 16.8,11.45
+            C16.8,12.2 16.3,12.7 15.6,12.7
+            H7.2 Z
+
+            M7.2,13.1 H16.8 V14.0 H7.2 Z
+
+            M7.2,9.6 H9.4 L10.2,10.2 V11.6 H7.2 Z"/>
+    </group>
+
 </vector>

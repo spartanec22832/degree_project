@@ -21,6 +21,7 @@ import com.sfedu.degree_android.ui.screens.place.toAbsoluteUrl
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.sfedu.degree_android.core.util.formatWorktime
 
 @Composable
 fun ZonePlaceMiniCard(
@@ -121,11 +122,11 @@ fun ZonePlaceMiniCard(
                     )
                 }
 
-                place.worktime?.takeIf { it.isNotBlank() }?.let {
+                formatWorktime(place.worktime)?.let { formatted ->
                     Spacer(Modifier.height(4.dp))
                     InfoLine(
                         icon = Icons.Filled.AccessTime,
-                        text = it
+                        text = formatted
                     )
                 }
             }

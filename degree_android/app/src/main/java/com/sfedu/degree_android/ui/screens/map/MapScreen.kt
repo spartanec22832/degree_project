@@ -121,6 +121,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.shape.CircleShape
+import com.sfedu.degree_android.core.util.formatWorktime
 import com.sfedu.degree_android.ui.screens.map.MapSearchViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -949,10 +950,10 @@ fun MapScreen(
 
                                             Text(text = String.format("%.1f", ratingAvg), fontSize = 13.sp)
 
-                                            place.worktime?.takeIf { it.isNotBlank() }?.let {
+                                            formatWorktime(place.worktime)?.let { formatted ->
                                                 Spacer(Modifier.width(8.dp))
                                                 Text(
-                                                    text = it,
+                                                    text = formatted,
                                                     color = MaterialTheme.colorScheme.primary,
                                                     fontSize = 13.sp
                                                 )
