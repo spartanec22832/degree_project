@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.OffsetDateTime
 import com.degree.backend.exception.NotFoundException
+import com.degree.backend.model.entity.ActionType
 
 @Service
 @Transactional(readOnly = true)
@@ -19,7 +20,8 @@ class InteractionService(
     private val ratingRepository: RatingRepository,
     private val placeRepository: PlaceRepository,
     private val userRepository: UserRepository,
-    private val photoRepository: PhotoRepository // Нужно для сборки PlaceDto
+    private val photoRepository: PhotoRepository, // Нужно для сборки PlaceDto
+    private val auditLogService: AuditLogService
 ) {
 
     // --- ИЗБРАННОЕ (FAVORITES) ---
@@ -32,6 +34,16 @@ class InteractionService(
         if (exists) {
             // Удаляем. Метод deleteBy... требует активной транзакции (она есть благодаря @Transactional)
             favoriteRepository.deleteByUserIdAndPlaceId(userId, request.placeId)
+            val user = userRepository.findById(userId)
+                .orElseThrow { NotFoundException("USER_NOT_FOUND", "Пользователь не найден", mapOf("userId" to userId)) }
+
+            auditLogService.log(
+                actionType = ActionType.FAVORITE_REMOVED,
+                user = user,
+                metadata = mapOf(
+                    "placeId" to request.placeId
+                )
+            )
         } else {
             // Создаем новое
             val user = userRepository.findById(userId)
@@ -39,9 +51,16 @@ class InteractionService(
             val place = placeRepository.findById(request.placeId)
                 .orElseThrow { NotFoundException("PLACE_NOT_FOUND", "Место не найдено", mapOf("placeId" to request.placeId)) }
 
-            // Используем твой маппер
             val favorite = request.toEntity(user, place)
             favoriteRepository.save(favorite)
+
+            auditLogService.log(
+                actionType = ActionType.FAVORITE_ADDED,
+                user = user,
+                metadata = mapOf(
+                    "placeId" to request.placeId
+                )
+            )
         }
     }
 
@@ -94,10 +113,28 @@ class InteractionService(
             existingRating.rating = request.rating
             existingRating.updatedAt = OffsetDateTime.now()
             ratingRepository.save(existingRating)
+
+            auditLogService.log(
+                actionType = ActionType.RATING_UPDATED,
+                user = user,
+                metadata = mapOf(
+                    "placeId" to request.placeId,
+                    "rating" to request.rating
+                )
+            )
         } else {
             // Если нет — создаем новую (тут время поставится само в конструкторе/маппере)
             val newRating = request.toEntity(user, place)
             ratingRepository.save(newRating)
+
+            auditLogService.log(
+                actionType = ActionType.RATING_CREATED,
+                user = user,
+                metadata = mapOf(
+                    "placeId" to request.placeId,
+                    "rating" to request.rating
+                )
+            )
         }
     }
 

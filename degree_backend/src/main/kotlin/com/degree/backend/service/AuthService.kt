@@ -19,6 +19,7 @@ import java.time.OffsetDateTime
 import com.degree.backend.exception.BadRequestException
 import com.degree.backend.exception.ConflictException
 import com.degree.backend.exception.NotFoundException
+import com.degree.backend.model.entity.ActionType
 
 @Service
 @Transactional(readOnly = true)
@@ -27,7 +28,8 @@ class AuthService(
     private val tokenRepository: TokenRepository,
     private val passwordEncoder: PasswordEncoder,
     private val jwtService: JwtService,
-    private val authenticationManager: AuthenticationManager
+    private val authenticationManager: AuthenticationManager,
+    private val auditLogService: AuditLogService
 ) {
 
     @Transactional
@@ -45,6 +47,14 @@ class AuthService(
 
         val jwtToken = jwtService.generateToken(savedUser)
         saveUserToken(savedUser, jwtToken)
+
+        auditLogService.log(
+            actionType = ActionType.USER_REGISTERED,
+            user = savedUser,
+            metadata = mapOf(
+                "username" to savedUser.login
+            )
+        )
 
         return AuthenticationResponse(accessToken = jwtToken)
     }
@@ -66,6 +76,14 @@ class AuthService(
         val jwtToken = jwtService.generateToken(user)
         saveUserToken(user, jwtToken)
 
+        auditLogService.log(
+            actionType = ActionType.USER_AUTHENTICATED,
+            user = user,
+            metadata = mapOf(
+                "username" to user.login
+            )
+        )
+
         return AuthenticationResponse(accessToken = jwtToken)
     }
 
@@ -85,6 +103,53 @@ class AuthService(
         user.passwordEncrypted = passwordEncoder.encode(request.newPassword)
         userRepository.save(user)
         revokeAllUserTokens(user)
+
+        auditLogService.log(
+            actionType = ActionType.PASSWORD_CHANGED,
+            user = user,
+            metadata = mapOf(
+                "username" to user.login
+            )
+        )
+    }
+
+    @Transactional
+    fun logout(authHeader: String?) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return
+        }
+
+        val jwt = authHeader.substring(7)
+        val storedToken = tokenRepository.findByToken(jwt).orElse(null) ?: return
+
+        if (!storedToken.revoked) {
+            storedToken.revoked = true
+            tokenRepository.save(storedToken)
+        }
+
+        auditLogService.log(
+            actionType = ActionType.USER_LOGOUT,
+            user = storedToken.user,
+            metadata = mapOf(
+                "tokenId" to storedToken.id
+            )
+        )
+    }
+
+    @Transactional
+    fun logoutAll(connectedUser: Principal) {
+        val user = userRepository.findByLogin(connectedUser.name)
+            .orElseThrow { NotFoundException("USER_NOT_FOUND", "Пользователь не найден") }
+
+        revokeAllUserTokens(user)
+
+        auditLogService.log(
+            actionType = ActionType.USER_LOGOUT_ALL,
+            user = user,
+            metadata = mapOf(
+                "username" to user.login
+            )
+        )
     }
 
     // --- Приватные методы ---

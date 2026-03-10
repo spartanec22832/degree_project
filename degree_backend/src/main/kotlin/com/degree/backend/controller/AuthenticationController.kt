@@ -36,4 +36,20 @@ class AuthenticationController(
         authService.changePassword(request, principal)
         return ResponseEntity.ok().build()
     }
+
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/logout")
+    fun logout(
+        @RequestHeader("Authorization") authHeader: String?
+    ): ResponseEntity<Void> {
+        authService.logout(authHeader)
+        return ResponseEntity.noContent().build()
+    }
+
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/logout-all")
+    fun logoutAll(principal: Principal): ResponseEntity<Void> {
+        authService.logoutAll(principal)
+        return ResponseEntity.noContent().build()
+    }
 }

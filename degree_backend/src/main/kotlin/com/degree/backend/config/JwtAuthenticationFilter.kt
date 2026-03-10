@@ -43,15 +43,11 @@ class JwtAuthenticationFilter(
         if (username != null && SecurityContextHolder.getContext().authentication == null) {
             val userDetails = this.userDetailsService.loadUserByUsername(username)
 
-            // ИСПРАВЛЕНИЕ ТУТ:
-            // Мы проверяем только флаг revoked.
-            // Срок действия проверит сам jwtService чуть ниже.
             val isTokenValidInDb = tokenRepository
-                .findByTokenAndRevokedFalse(jwt)
+                .findActiveToken(jwt)
                 .isPresent
 
             if (jwtService.isTokenValid(jwt, userDetails) && isTokenValidInDb) {
-
                 val authToken = UsernamePasswordAuthenticationToken(
                     userDetails,
                     null,
@@ -62,6 +58,7 @@ class JwtAuthenticationFilter(
                 SecurityContextHolder.getContext().authentication = authToken
             }
         }
+
         filterChain.doFilter(request, response)
     }
 }
