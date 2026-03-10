@@ -20,7 +20,8 @@ import androidx.compose.ui.unit.dp
 fun LoginScreen(
     state: AuthUiState,
     onLogin: (String, String) -> Unit,
-    onSwitchToRegister: () -> Unit
+    onSwitchToRegister: () -> Unit,
+    onInputChanged: () -> Unit
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -47,7 +48,10 @@ fun LoginScreen(
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
             value = username,
-            onValueChange = { username = it },
+            onValueChange = {
+                username = it
+                onInputChanged()
+            },
             label = { Text("Логин") },
             singleLine = true,
             colors = tfColors
@@ -56,7 +60,10 @@ fun LoginScreen(
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
             value = password,
-            onValueChange = { password = it },
+            onValueChange = {
+                password = it
+                onInputChanged()
+            },
             label = { Text("Пароль") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
@@ -67,7 +74,6 @@ fun LoginScreen(
             Text(it, color = MaterialTheme.colorScheme.error)
         }
 
-        // Кнопки в одну линию
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)

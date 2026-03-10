@@ -22,4 +22,10 @@ interface AuthApi {
 
     @PATCH("api/v1/auth/change-password")
     suspend fun changePassword(@Body request: ChangePasswordRequest)
+
+    @POST("api/v1/auth/logout")
+    suspend fun logout()
+
+    @POST("api/v1/auth/logout-all")
+    suspend fun logoutAll()
 }

@@ -91,4 +91,12 @@ class ProfileViewModel @Inject constructor(
             onDone()
         }
     }
+
+    fun logoutAll(onDone: () -> Unit) {
+        viewModelScope.launch {
+            authRepository.logoutAll()
+            onDone()
+        }
+    }
+
 }

@@ -26,7 +26,21 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun logout() {
-        tokenStorage.clear()
+        try {
+            api.logout()
+        } catch (_: Exception) {
+        } finally {
+            tokenStorage.clear()
+        }
+    }
+
+    override suspend fun logoutAll() {
+        try {
+            api.logoutAll()
+        } catch (_: Exception) {
+        } finally {
+            tokenStorage.clear()
+        }
     }
 
     override suspend fun changePassword(

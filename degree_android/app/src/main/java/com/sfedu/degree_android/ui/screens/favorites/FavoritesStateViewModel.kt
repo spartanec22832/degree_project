@@ -41,7 +41,7 @@ class FavoritesStateViewModel @Inject constructor(
 
     private fun humanError(e: Throwable): String {
         return when (e) {
-            is HttpException -> ApiErrorParser.humanMessage(e) // у тебя уже есть единый парсер
+            is HttpException -> ApiErrorParser.humanMessage(e)
             is IOException -> "Сеть недоступна"
             else -> e.message ?: "Ошибка"
         }

@@ -4,6 +4,7 @@ interface AuthRepository {
     suspend fun login(login: String, password: String)
     suspend fun register(login: String, password: String)
     suspend fun logout()
+    suspend fun logoutAll()
     suspend fun changePassword(
         currentPassword: String,
         newPassword: String,

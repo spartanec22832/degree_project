@@ -20,7 +20,8 @@ import androidx.compose.ui.unit.dp
 fun RegisterScreen(
     state: AuthUiState,
     onRegister: (String, String) -> Unit,
-    onSwitchToLogin: () -> Unit
+    onSwitchToLogin: () -> Unit,
+    onInputChanged: () -> Unit
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -47,7 +48,10 @@ fun RegisterScreen(
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
             value = username,
-            onValueChange = { username = it },
+            onValueChange = {
+                username = it
+                onInputChanged()
+            },
             label = { Text("Логин") },
             singleLine = true,
             colors = tfColors
@@ -56,7 +60,10 @@ fun RegisterScreen(
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
             value = password,
-            onValueChange = { password = it },
+            onValueChange = {
+                password = it
+                onInputChanged()
+            },
             label = { Text("Пароль") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),

@@ -18,13 +18,15 @@ fun AuthScreenHost(
         LoginScreen(
             state = vm.state,
             onLogin = { u, p -> vm.login(u, p, onSuccess = onAuthSuccess) },
-            onSwitchToRegister = { isLogin = false }
+            onSwitchToRegister = { isLogin = false },
+            onInputChanged = { vm.clearError() }
         )
     } else {
         RegisterScreen(
             state = vm.state,
             onRegister = { u, p -> vm.register(u, p, onSuccess = onAuthSuccess) },
-            onSwitchToLogin = { isLogin = true }
+            onSwitchToLogin = { isLogin = true },
+            onInputChanged = { vm.clearError() }
         )
     }
 }
