@@ -46,8 +46,19 @@ class MapViewModel @Inject constructor(
 
         viewModelScope.launch {
             runCatching { placesRepository.getMapPlaces() }
-                .onSuccess { state = state.copy(loading = false, places = it) }
-                .onFailure { state = state.copy(loading = false, error = it.message ?: "Ошибка загрузки") }
+                .onSuccess { places ->
+                    state = state.copy(loading = false, places = places)
+
+                    launch {
+                        placesRepository.warmUpPlacesCache(places.map { it.id })
+                    }
+                }
+                .onFailure {
+                    state = state.copy(
+                        loading = false,
+                        error = it.message ?: "Ошибка загрузки"
+                    )
+                }
         }
     }
 
@@ -57,7 +68,7 @@ class MapViewModel @Inject constructor(
             if (current.contains(type)) current - type
             else current + type
 
-        // чтобы пользователь не мог снять вообще всё (опционально, но удобно)
+        // чтобы пользователь не мог снять все галочки
         state = state.copy(enabledTypes = if (next.isEmpty()) current else next)
     }
 
