@@ -92,6 +92,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
@@ -483,7 +484,7 @@ fun MapScreen(
         drawerState = drawerState,
         gesturesEnabled = drawerState.currentValue == DrawerValue.Open,
         drawerContent = {
-            ModalDrawerSheet {
+            ModalDrawerSheet(windowInsets = WindowInsets(0, 0, 0, 0)) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
