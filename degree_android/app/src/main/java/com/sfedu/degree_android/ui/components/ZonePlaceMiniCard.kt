@@ -21,6 +21,9 @@ import com.sfedu.degree_android.ui.screens.place.toAbsoluteUrl
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import com.sfedu.degree_android.core.util.formatWorktime
 
 @Composable
@@ -53,7 +56,11 @@ fun ZonePlaceMiniCard(
             ) {
                 if (!photoUrl.isNullOrBlank()) {
                     AsyncImage(
-                        model = photoUrl,
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(photoUrl)
+                            .diskCachePolicy(CachePolicy.ENABLED)
+                            .networkCachePolicy(CachePolicy.ENABLED)
+                            .build(),
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop

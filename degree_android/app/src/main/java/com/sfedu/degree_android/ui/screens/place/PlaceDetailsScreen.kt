@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import com.sfedu.degree_android.core.network.ApiConstants
 import com.sfedu.degree_android.core.util.formatWorktime
 import com.sfedu.degree_android.data.remote.dto.PlaceDto
@@ -142,7 +144,11 @@ fun PlaceDetailsScreen(
                                 ) { page ->
                                     val url = toAbsoluteUrl(ApiConstants.BASE_URL, photos[page].url)
                                     AsyncImage(
-                                        model = url,
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(url)
+                                            .diskCachePolicy(CachePolicy.ENABLED)
+                                            .networkCachePolicy(CachePolicy.ENABLED)
+                                            .build(),
                                         contentDescription = null,
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop
