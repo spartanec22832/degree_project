@@ -9,12 +9,17 @@ import com.sfedu.degree_android.data.remote.dto.PlaceDto
 import com.sfedu.degree_android.data.remote.dto.PlaceMapDto
 import com.sfedu.degree_android.data.remote.dto.PlaceSearchDto
 import com.sfedu.degree_android.domain.repository.PlacesRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
 
 class PlacesRepositoryImpl @Inject constructor(
     private val api: PlacesApi,
     private val cacheDao: PlaceCacheDao
 ) : PlacesRepository {
+
+    private var isWarmedUp = false
 
     override suspend fun getMapPlaces(): List<PlaceMapDto> {
         return try {
@@ -56,14 +61,23 @@ class PlacesRepositoryImpl @Inject constructor(
     }
 
     override suspend fun warmUpPlacesCache(placeIds: List<Int>) {
-        placeIds.forEach { id ->
-            runCatching {
-                val remote = api.getPlace(id)
-                cacheDao.upsertPlace(remote.toCachedEntity())
-                cacheDao.replacePhotosForPlace(
-                    placeId = id,
-                    items = remote.photos.map { it.toCachedEntity(id) }
-                )
+        if (isWarmedUp) return
+
+        isWarmedUp = true
+        coroutineScope {
+            placeIds.chunked(5).forEach { chunk ->
+                chunk.map { id ->
+                    async {
+                        runCatching {
+                            val remote = api.getPlace(id)
+                            cacheDao.upsertPlace(remote.toCachedEntity())
+                            cacheDao.replacePhotosForPlace(
+                                placeId = id,
+                                items = remote.photos.map { it.toCachedEntity(id) }
+                            )
+                        }
+                    }
+                }.awaitAll()
             }
         }
     }
