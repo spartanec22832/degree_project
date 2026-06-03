@@ -37,6 +37,8 @@ services:
     image: caddy:2-alpine
     container_name: degree_caddy
     restart: always
+    env_file:
+      - .env
     ports:
       - "80:80"
       - "444:443"
