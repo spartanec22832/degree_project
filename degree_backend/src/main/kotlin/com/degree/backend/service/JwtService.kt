@@ -5,6 +5,7 @@ import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.SignatureAlgorithm
 import io.jsonwebtoken.io.Decoders
 import io.jsonwebtoken.security.Keys
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.stereotype.Service
 import java.security.Key
@@ -13,13 +14,11 @@ import java.util.function.Function
 import java.util.UUID
 
 @Service
-class JwtService {
+class JwtService(
+    @Value("\${jwt.secret}") private val secretKey: String
+) {
 
     private val JWT_EXPIRATION_MS = 1000L * 60 * 60 * 24 * 30 // 30 дней
-
-    // ВАЖНО: Ключ должен быть длинным (минимум 256 бит для HS256).
-    // В продакшене его хранят в application.properties, но пока оставим здесь.
-    private val SECRET_KEY = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
 
     // 1. Извлечь имя пользователя (логин) из токена
     fun extractUsername(token: String): String {
@@ -75,7 +74,7 @@ class JwtService {
 
     // Декодирование секретного ключа
     private fun getSignInKey(): Key {
-        val keyBytes = Decoders.BASE64.decode(SECRET_KEY)
+        val keyBytes = Decoders.BASE64.decode(secretKey)
         return Keys.hmacShaKeyFor(keyBytes)
     }
 }

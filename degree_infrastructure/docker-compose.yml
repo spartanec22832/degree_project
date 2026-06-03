@@ -10,7 +10,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - degree_infrastructure_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -32,8 +32,24 @@ services:
       - .env
     environment:
       SPRING_PROFILES_ACTIVE: docker
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: degree_caddy
+    restart: always
+    env_file:
+      - .env
     ports:
-      - "8080:8080"
+      - "80:80"
+      - "444:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
 
 volumes:
   degree_infrastructure_pgdata:
+  caddy_data:
+  caddy_config:
