@@ -34,10 +34,17 @@ android {
             if (f.exists()) f.inputStream().use { load(it) }
         }
         val yandexKey = props.getProperty("YANDEX_MAPKIT_API_KEY") ?: ""
-        android {
-            defaultConfig {
-                buildConfigField("String", "YANDEX_MAPKIT_API_KEY", "\"$yandexKey\"")
-            }
+
+        buildConfigField("String", "YANDEX_MAPKIT_API_KEY", "\"$yandexKey\"")
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 
@@ -115,6 +122,8 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.androidx.ui.test.junit4)
-    debugImplementation(libs.androidx.ui.test.manifest)
+    // androidTestImplementation(libs.androidx.ui.test.junit4)
+    // debugImplementation(libs.androidx.ui.test.manifest)
+
+    implementation("androidx.core:core-splashscreen:1.0.1")
 }
