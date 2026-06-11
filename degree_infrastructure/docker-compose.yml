@@ -25,6 +25,8 @@ services:
       dockerfile: Dockerfile
     container_name: degree_backend
     restart: always
+    ports:
+      - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,8 +34,6 @@ services:
       - .env
     environment:
       SPRING_PROFILES_ACTIVE: docker
-    ports:
-      - "8080:8080"
 
 volumes:
   degree_infrastructure_pgdata:
