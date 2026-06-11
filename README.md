@@ -50,7 +50,6 @@
 
 ### 🐳 Инфраструктура и DevOps
 * **Контейнеризация:** Docker, Docker Compose
-* **Веб-сервер / Reverse Proxy:** Caddy Server 2 (Автоматическое получение и продление SSL-сертификатов Let's Encrypt, проксирование трафика)
 
 ---
 
@@ -69,9 +68,8 @@
  ┣ 📂 degree_backend/         # Исходный код Spring Boot сервера
  ┃ ┣ 📂 src/main/kotlin/      # Контроллеры, Сервисы, Сущности JPA
  ┃ ┗ 📂 src/main/resources/   # Миграции Flyway (db/migration), .yml-файлы
- ┣ 📂 infrastructure/         # Инфраструктурный слой для деплоя
- ┃ ┣ 📜 docker-compose.yml    # Оркестрация контейнеров (Postgres, Backend, Caddy)
- ┃ ┣ 📜 Caddyfile             # Конфигурация проксирования и HTTPS-сертификатов
+ ┣ 📂 degree_infrastructure/  # Инфраструктурный слой для локального запуска
+ ┃ ┣ 📜 docker-compose.yml    # Оркестрация контейнеров (Postgres, Backend)
  ┃ ┗ 📜 .env.example          # Образец заполнения .env
  ┗ 📜 README.md               # Файл документации
 ```
@@ -100,6 +98,20 @@ cd degree_infrastructure
 POSTGRES_DB=<YOUR_DB_NAME>
 POSTGRES_USER=<YOUR_USERNAME>
 POSTGRES_PASSWORD=<YOUR_PASSWORD>
+
+JWT_SECRET=<YOUR_JWT_SECRET>
+```
+
+Пример `JWT_SECRET`:
+
+```
+JWT_SECRET=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+```
+
+Запустите контейнеры командой:
+
+```bash
+docker compose up --build
 ```
 
 ### 3. Настройка и запуск Android-клиента
